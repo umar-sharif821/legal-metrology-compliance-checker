@@ -1,0 +1,13 @@
+{
+  "title": "Legal Metrology Compliance Checker",
+  "sub": "Revised Full Implementation Plan — v2.0",
+  "abstract": "A critical review of the v1 specification and a replacement implementation plan. This document keeps what v1 got right — a deterministic, clause-citing rule engine and category-conditional logic — and rebuilds the parts that would not have survived contact with a real package, a real network, or a real enforcement officer. The three optimisation targets are stated up front and everything is designed against them: <b>speed</b> (a useful verdict on screen in under one second, without the network), <b>accuracy</b> (measured, not asserted — with precision on flags as the primary metric), and <b>field usability</b> (one-handed, sunlight-readable, works with no signal).",
+  "facts": [
+    ["Problem", "SIH26034 — Automated compliance checking of pre-packaged commodity labels"],
+    ["Governing law", "Legal Metrology (Packaged Commodities) Rules, 2011 and amendments; with an optional extended pack for FSSAI / BIS / D&amp;C statutes"],
+    ["Primary user", "Legal Metrology field enforcement officer (mobile, live scanning)"],
+    ["Secondary user", "Controller / senior officer (web dashboard, e-commerce sweeps)"],
+    ["Supersedes", "FULL_IMPLEMENTATION_SPEC v1 (21 pp.)"],
+    ["Status", "Proposed — sections marked LEGAL REVIEW require validation against the bare Act before demo"]
+  ]
+}
