@@ -3,7 +3,7 @@
 > Single source of truth for project state. Updated by `/handoff`, read by `/pickup`.
 > Keep it terse. This file is read in full every session — every line costs tokens.
 
-**Last updated:** 2026-09-10 · **Sessions completed:** 2 · **Current sprint:** 1
+**Last updated:** 2026-09-10 · **Sessions completed:** 3 · **Current sprint:** 1 (paused for the demo detour)
 
 ---
 
@@ -55,9 +55,11 @@ Nine gates now run green: `npm run format:check`, `npm run lint`, `npm run typec
 
 Setup on a fresh clone: `npm install` and `python -m pip install -r requirements-dev.txt`.
 
-**Needed from user (non-blocking, ask when convenient):**
-- Android phone model + Android version — decides whether the device is a fair
-  stand-in for the mid-range performance target in plan §16. **Not yet asked.**
+**Needed from user:**
+- **BLOCKING `D-1`: connect the OnePlus Nord 4 by USB** with developer options and USB
+  debugging on, and accept the RSA prompt on the phone. `adb devices` must list it.
+- Android **version** on the Nord 4 still unknown. Model is confirmed (OnePlus Nord 4,
+  Dimensity 7300) — a fair mid-range stand-in for the plan §16 performance target.
 - A Legal Metrology officer / law student contact for the rule-pack review (plan §4,
   needed before Sprint 6, ideally started in Sprint 1). **Not yet asked.**
 - Docker is not installed on this machine (`docker --version` fails). `T-1.11` needs
@@ -116,8 +118,11 @@ Append-only. One line each. Never re-litigate a line that is already here.
 
 Noticed but deliberately out of scope for now. Do not action without asking.
 
-- `docs/ARCHITECTURE.md` and `docs/DEMO_SCRIPT.md` are listed in plan §18 but no task
-  on the board creates them. Assign them before Sprint 6 (`T-6.5` needs the demo script).
+- `docs/ARCHITECTURE.md` is listed in plan §18 but no task on the board creates it.
+  Assign it before Sprint 6. (`docs/DEMO_SCRIPT.md`, the other half of this item, is now
+  written by demo phase `D-5`.)
+- The demo's Gradle build takes ~20 min from cold but is incremental afterwards. Only a
+  native-dependency or `app.json` change forces a rebuild; JS edits reload over Metro.
 - No pre-commit hook. The nine checks are run by hand; nothing stops a bad commit
   locally, and CI has never executed because the repo has no remote.
 - **No JSON Schema for the verdict envelope.** `rulepack.schema.json` covers the rule
