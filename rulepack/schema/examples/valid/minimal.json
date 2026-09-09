@@ -1,0 +1,44 @@
+{
+  "$schema": "../../rulepack.schema.json",
+  "schema_version": "2.0",
+  "metadata": {
+    "id": "example-minimal",
+    "version": "0.1.0",
+    "statute": "EXAMPLE",
+    "title": { "en": "Smallest pack the schema accepts" },
+    "description": "The floor of the contract, and the base the rejection table in ../rejections.json mutates. Nothing here is a statutory claim.",
+    "amendments_through": null,
+    "provenance": {
+      "source": "Not a statutory source — schema fixture only.",
+      "status": "PENDING_LEGAL_REVIEW",
+      "reviewed_by": null,
+      "reviewed_on": null
+    }
+  },
+  "fields": [
+    {
+      "id": "net_quantity",
+      "title": { "en": "Net quantity" },
+      "value_type": "quantity"
+    }
+  ],
+  "applicability_gates": [],
+  "declarations": [
+    {
+      "id": "net_quantity_present",
+      "field": "net_quantity",
+      "clause": { "statute": "EXAMPLE", "rule": "0(1)(c)", "sub_clause": "c" },
+      "title": { "en": "Net quantity is absent" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "high",
+      "evidence_fields": ["net_quantity"],
+      "check": { "kind": "field_present", "params": {} }
+    }
+  ]
+}

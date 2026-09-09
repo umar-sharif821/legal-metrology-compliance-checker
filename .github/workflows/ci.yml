@@ -65,12 +65,11 @@ jobs:
       - name: Validate every pack against rulepack/schema/rulepack.schema.json
         run: |
           if [ ! -f rulepack/schema/rulepack.schema.json ]; then
-            echo "::notice title=Gate not implemented::rule-pack schema gate is a no-op until T-1.2 creates rulepack/schema/rulepack.schema.json"
-            exit 0
+            echo "::error title=Schema missing::rulepack/schema/rulepack.schema.json was deleted — it is the contract this gate exists to enforce"
+            exit 1
           fi
           pip install -r requirements-dev.txt
-          echo "::error title=Gate wiring missing::schema exists but no validator is wired — implement this step with T-1.2"
-          exit 1
+          python rulepack/validate.py
 
   conformance:
     name: 'Gate: evaluator conformance (T-1.9)'

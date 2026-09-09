@@ -1,0 +1,600 @@
+{
+  "$schema": "../../rulepack.schema.json",
+  "schema_version": "2.0",
+  "metadata": {
+    "id": "example-full-featured",
+    "version": "0.1.0",
+    "statute": "EXAMPLE",
+    "title": {
+      "en": "Schema example — not a rule pack",
+      "hi": "स्कीमा उदाहरण — यह नियम पैक नहीं है"
+    },
+    "description": "Exercises every construct the schema defines so that the contract is tested today, before rulepack/lmpc-2011.json exists (T-1.3). Nothing here is a statutory claim: the statute code is EXAMPLE and the reviewer names are placeholders. The validator never treats files under schema/examples/ as real packs.",
+    "jurisdiction": "IN",
+    "amendments_through": null,
+    "provenance": {
+      "source": "Not a statutory source — schema fixture only.",
+      "status": "PENDING_LEGAL_REVIEW",
+      "reviewed_by": null,
+      "reviewed_on": null
+    }
+  },
+
+  "fields": [
+    {
+      "id": "mrp",
+      "title": { "en": "Retail sale price", "hi": "खुदरा विक्रय मूल्य" },
+      "value_type": "currency_amount"
+    },
+    {
+      "id": "net_quantity",
+      "title": { "en": "Net quantity", "hi": "शुद्ध मात्रा" },
+      "value_type": "quantity"
+    },
+    {
+      "id": "unit_sale_price",
+      "title": { "en": "Unit sale price" },
+      "value_type": "currency_amount"
+    },
+    {
+      "id": "unit_count",
+      "title": { "en": "Number of units in the pack" },
+      "value_type": "quantity"
+    },
+    {
+      "id": "manufacturer_address",
+      "title": { "en": "Manufacturer, packer or importer address" },
+      "value_type": "text"
+    },
+    {
+      "id": "date_of_packing",
+      "title": { "en": "Month and year of manufacture or packing" },
+      "value_type": "date_month_year"
+    },
+    {
+      "id": "commodity_name",
+      "title": { "en": "Common or generic name of the commodity" },
+      "value_type": "text"
+    }
+  ],
+
+  "applicability_gates": [
+    {
+      "id": "pre_packaged",
+      "order": 0,
+      "title": { "en": "Is the commodity pre-packaged?" },
+      "description": "Loose or weighed-at-counter goods are outside the Rules entirely.",
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "test": { "var": "package.is_pre_packaged", "op": "eq", "value": true },
+      "when_true": { "kind": "in_scope" },
+      "when_false": {
+        "kind": "out_of_scope",
+        "note": {
+          "en": "Not a pre-packaged commodity — the Rules do not apply."
+        }
+      },
+      "indeterminate": {
+        "officer_question": {
+          "en": "Was this packed in advance, without the buyer present?",
+          "hi": "क्या यह क्रेता की अनुपस्थिति में पहले से पैक किया गया था?"
+        },
+        "default_effect": { "kind": "ask_officer" }
+      }
+    },
+    {
+      "id": "small_quantity_exemption",
+      "order": 1,
+      "title": { "en": "Small-quantity exemption" },
+      "clause": {
+        "statute": "EXAMPLE",
+        "rule": "0(0)",
+        "sub_clause": null
+      },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "test": {
+        "all": [
+          { "var": "package.net_quantity_g", "op": "present" },
+          { "var": "package.net_quantity_g", "op": "lte", "value": 10 }
+        ]
+      },
+      "when_true": {
+        "kind": "exempt",
+        "cites": { "statute": "EXAMPLE", "rule": "0(0)", "sub_clause": null },
+        "declarations": ["commodity_name_present"],
+        "note": {
+          "en": "Outside the scope of the declaration set — small-quantity exemption. No action required."
+        }
+      },
+      "when_false": { "kind": "in_scope" }
+    },
+    {
+      "id": "institutional_pack",
+      "order": 2,
+      "title": { "en": "Marked for institutional or industrial use" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "test": {
+        "var": "package.marking",
+        "op": "matches_lexicon",
+        "value": "en_anchors"
+      },
+      "when_true": { "kind": "restrict_to_tags", "tags": ["institutional"] },
+      "when_false": { "kind": "in_scope" }
+    }
+  ],
+
+  "declarations": [
+    {
+      "id": "mrp_tax_inclusive_wording",
+      "field": "mrp",
+      "clause": {
+        "statute": "EXAMPLE",
+        "rule": "0(1)(e)",
+        "sub_clause": "e",
+        "alternate_readings": [
+          {
+            "rule": "0(1)(f)",
+            "sub_clause": "f",
+            "source": "Fixture stand-in for the unresolved MRP sub-clause letter.",
+            "note": "Recorded rather than silently resolved — see the open legal question in docs/PROGRESS.md."
+          }
+        ]
+      },
+      "title": {
+        "en": "MRP lacks the 'inclusive of all taxes' wording",
+        "hi": "अधिकतम खुदरा मूल्य पर 'सभी करों सहित' शब्द नहीं है"
+      },
+      "detail_template": {
+        "en": "Found '{mrp_text}' with no tax-inclusivity phrase within the declaration block."
+      },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "high",
+      "evidence_fields": ["mrp"],
+      "check": {
+        "kind": "phrase_required",
+        "params": {
+          "phrase_table": "tax_inclusivity_phrases",
+          "min_similarity": 0.82,
+          "scope": "declaration_block"
+        }
+      }
+    },
+    {
+      "id": "commodity_name_present",
+      "field": "commodity_name",
+      "clause": { "statute": "EXAMPLE", "rule": "0(1)(b)", "sub_clause": "b" },
+      "title": { "en": "Common or generic name of the commodity is absent" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "medium",
+      "tags": ["institutional"],
+      "evidence_fields": ["commodity_name"],
+      "check": { "kind": "field_present", "params": {} }
+    },
+    {
+      "id": "net_quantity_unit_legal",
+      "field": "net_quantity",
+      "clause": { "statute": "EXAMPLE", "rule": "0(1)(c)", "sub_clause": "c" },
+      "title": { "en": "Net quantity is not declared in a legal SI unit" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only. Demonstrates the REVIEWED branch: only a reviewed entry may cap at violation, and a violation must carry evidence.",
+        "status": "REVIEWED",
+        "reviewed_by": "EXAMPLE FIXTURE — not a real reviewer",
+        "reviewed_on": "2026-01-01"
+      },
+      "max_severity": "violation",
+      "confidence": "high",
+      "evidence_fields": ["net_quantity"],
+      "check": { "kind": "unit_legal", "params": { "unit_table": "si_units" } }
+    },
+    {
+      "id": "net_quantity_symbol_case",
+      "field": "net_quantity",
+      "clause": { "statute": "EXAMPLE", "rule": "0(1)(c)", "sub_clause": "c" },
+      "title": { "en": "Unit symbol uses a non-standard form" },
+      "detail_template": {
+        "en": "Found '{found}'; the standard symbol is '{canonical}'."
+      },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "high",
+      "evidence_fields": ["net_quantity"],
+      "check": { "kind": "symbol_case", "params": { "unit_table": "si_units" } }
+    },
+    {
+      "id": "packing_date_parseable",
+      "field": "date_of_packing",
+      "clause": { "statute": "EXAMPLE", "rule": "0(1)(d)", "sub_clause": "d" },
+      "title": { "en": "Month and year of packing is absent or not parseable" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "DISPUTED",
+        "reviewed_by": null,
+        "reviewed_on": null,
+        "notes": "DISPUTED behaves like PENDING_LEGAL_REVIEW for severity purposes: advisory only."
+      },
+      "max_severity": "advisory",
+      "confidence": "high",
+      "evidence_fields": ["date_of_packing"],
+      "check": {
+        "kind": "date_parseable",
+        "params": {
+          "formats": ["MM/YYYY", "MMM YYYY", "MM-YY"],
+          "not_future": true,
+          "max_age_months": 120
+        }
+      }
+    },
+    {
+      "id": "manufacturer_address_has_pin",
+      "field": "manufacturer_address",
+      "clause": { "statute": "EXAMPLE", "rule": "0(1)(a)", "sub_clause": "a" },
+      "title": { "en": "Address carries no locality or PIN-like token" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "medium",
+      "evidence_fields": ["manufacturer_address"],
+      "check": {
+        "kind": "token_present",
+        "params": { "name": "pin_code", "pattern": "\\b[1-9][0-9]{5}\\b" }
+      }
+    },
+    {
+      "id": "unit_price_reconciles",
+      "field": "unit_sale_price",
+      "clause": { "statute": "EXAMPLE", "rule": "0(2)", "sub_clause": null },
+      "title": { "en": "Unit price does not reconcile with the pack price" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "high",
+      "applies_when": {
+        "var": "package.is_multi_piece",
+        "op": "eq",
+        "value": true
+      },
+      "tags": ["multi_piece"],
+      "evidence_fields": ["unit_sale_price", "mrp"],
+      "check": {
+        "kind": "arithmetic_reconcile",
+        "params": {
+          "left_field": "mrp",
+          "operator": "product",
+          "right_fields": ["unit_sale_price", "unit_count"],
+          "tolerance_ratio": 0.02
+        }
+      }
+    },
+    {
+      "id": "declaration_script_present",
+      "field": "commodity_name",
+      "clause": { "statute": "EXAMPLE", "rule": "0(3)", "sub_clause": null },
+      "title": { "en": "Declarations appear in neither Hindi nor English" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "medium",
+      "evidence_fields": ["commodity_name"],
+      "check": {
+        "kind": "script_present",
+        "params": { "scripts": ["latin", "devanagari"], "mode": "any_of" }
+      }
+    },
+    {
+      "id": "commodity_name_not_brand",
+      "field": "commodity_name",
+      "clause": { "statute": "EXAMPLE", "rule": "0(1)(b)", "sub_clause": "b" },
+      "title": {
+        "en": "Declared name looks like a brand rather than a generic name"
+      },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "low",
+      "evidence_fields": ["commodity_name"],
+      "check": {
+        "kind": "lexicon_match",
+        "params": { "lexicon": "en_anchors", "min_score": 0.5, "margin": 0.15 }
+      }
+    },
+    {
+      "id": "mrp_labelled_as_mrp",
+      "field": "mrp",
+      "clause": { "statute": "EXAMPLE", "rule": "0(1)(e)", "sub_clause": "e" },
+      "title": { "en": "Price is not labelled as Maximum Retail Price" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "medium",
+      "evidence_fields": ["mrp"],
+      "check": {
+        "kind": "pattern_match",
+        "params": {
+          "pattern": "(m\\.?r\\.?p\\.?|maximum retail price)",
+          "flags": "i"
+        }
+      }
+    },
+    {
+      "id": "mrp_single_value",
+      "field": "mrp",
+      "clause": { "statute": "EXAMPLE", "rule": "0(1)(e)", "sub_clause": "e" },
+      "title": { "en": "More than one retail sale price is declared" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "high",
+      "evidence_fields": ["mrp"],
+      "check": { "kind": "single_value", "params": {} }
+    }
+  ],
+
+  "geometry_rules": [
+    {
+      "id": "mrp_net_quantity_height_parity",
+      "clause": { "statute": "EXAMPLE", "rule": "0(8)(2)", "sub_clause": null },
+      "title": {
+        "en": "MRP numerals are smaller than the net-quantity numerals"
+      },
+      "detail_template": {
+        "en": "MRP numeral height is {ratio} of the net-quantity numeral height."
+      },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "high",
+      "evidence_fields": ["mrp", "net_quantity"],
+      "check": {
+        "kind": "height_parity",
+        "requires_scale_reference": false,
+        "params": {
+          "field_a": "mrp",
+          "field_b": "net_quantity",
+          "tolerance_ratio": 0.1
+        }
+      }
+    },
+    {
+      "id": "numeral_height_minimum",
+      "clause": {
+        "statute": "EXAMPLE",
+        "rule": "0(7)",
+        "schedule": "Example Schedule"
+      },
+      "title": { "en": "Numeral height may be below the minimum" },
+      "detail_template": {
+        "en": "No scale reference was available; relative check only. Recommend manual measurement."
+      },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "low",
+      "evidence_fields": ["net_quantity"],
+      "check": {
+        "kind": "height_min_from_table",
+        "requires_scale_reference": true,
+        "params": {
+          "table": "height_bands",
+          "basis_var": "geometry.principal_display_panel_area_cm2",
+          "print_kind_var": "package.print_kind"
+        }
+      }
+    },
+    {
+      "id": "declaration_block_co_location",
+      "clause": { "statute": "EXAMPLE", "rule": "0(9)", "sub_clause": null },
+      "title": { "en": "Mandatory declarations are not grouped together" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "low",
+      "evidence_fields": ["mrp", "net_quantity", "date_of_packing"],
+      "check": {
+        "kind": "co_location",
+        "requires_scale_reference": false,
+        "params": {
+          "fields": ["mrp", "net_quantity", "date_of_packing"],
+          "max_gap_ratio": 2.5
+        }
+      }
+    },
+    {
+      "id": "declaration_spacing",
+      "clause": { "statute": "EXAMPLE", "rule": "0(9)", "sub_clause": null },
+      "title": { "en": "Declarations are set too close to be legible" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "max_severity": "advisory",
+      "confidence": "low",
+      "evidence_fields": ["mrp", "net_quantity"],
+      "check": {
+        "kind": "min_separation",
+        "requires_scale_reference": false,
+        "params": {
+          "field_a": "mrp",
+          "field_b": "net_quantity",
+          "min_mm": null,
+          "min_ratio_of_height": 0.25
+        }
+      }
+    }
+  ],
+
+  "tables": [
+    {
+      "id": "height_bands",
+      "kind": "band_lookup",
+      "title": { "en": "Minimum numeral height by panel area" },
+      "clause": {
+        "statute": "EXAMPLE",
+        "rule": "0(7)",
+        "schedule": "Example Schedule"
+      },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "unit": "mm",
+      "basis": "area_of_principal_display_panel_cm2",
+      "bands": [
+        { "max": 100, "values": { "normal": 1.0, "embossed": 2.0 } },
+        { "max": 300, "values": { "normal": 2.0, "embossed": 4.0 } },
+        { "max": 500, "values": { "normal": 4.0, "embossed": 6.0 } },
+        { "max": null, "values": { "normal": 6.0, "embossed": 6.0 } }
+      ]
+    },
+    {
+      "id": "si_units",
+      "kind": "unit_set",
+      "title": { "en": "Legal units of net quantity" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "units": [
+        {
+          "symbol": "g",
+          "quantity_kind": "mass",
+          "legal": true,
+          "canonical": "g"
+        },
+        {
+          "symbol": "kg",
+          "quantity_kind": "mass",
+          "legal": true,
+          "canonical": "kg"
+        },
+        {
+          "symbol": "gms",
+          "quantity_kind": "mass",
+          "legal": false,
+          "canonical": "g",
+          "variants": ["gm", "gms.", "Gms"]
+        },
+        {
+          "symbol": "ml",
+          "quantity_kind": "volume",
+          "legal": true,
+          "canonical": "ml"
+        },
+        {
+          "symbol": "ML",
+          "quantity_kind": "volume",
+          "legal": false,
+          "canonical": "ml",
+          "variants": ["Ml", "mL."]
+        }
+      ]
+    },
+    {
+      "id": "tax_inclusivity_phrases",
+      "kind": "phrase_set",
+      "title": { "en": "Accepted tax-inclusivity wording" },
+      "provenance": {
+        "source": "Not a statutory source — schema fixture only.",
+        "status": "PENDING_LEGAL_REVIEW",
+        "reviewed_by": null,
+        "reviewed_on": null
+      },
+      "phrases": [
+        { "text": "inclusive of all taxes", "language": "en" },
+        {
+          "text": "incl. of all taxes",
+          "language": "en",
+          "note": "Common abbreviation."
+        },
+        { "text": "सभी करों सहित", "language": "hi" }
+      ]
+    }
+  ],
+
+  "lexicons": [
+    {
+      "id": "en_anchors",
+      "path": "lexicons/en.json",
+      "language": "en",
+      "description": "Anchor phrases, synonyms and commodity nouns. Authored at T-2.5."
+    },
+    {
+      "id": "hi_anchors",
+      "path": "lexicons/hi.json",
+      "language": "hi",
+      "description": "Devanagari counterparts. Authored at T-2.5."
+    }
+  ]
+}

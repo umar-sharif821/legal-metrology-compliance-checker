@@ -1,0 +1,1021 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://sih26034.local/schema/rulepack-2.0.schema.json",
+  "title": "Legal Metrology rule pack",
+  "description": "Structural contract for every pack in rulepack/*.json (plan §4.5, §5.2). The pack is the single source of truth for statutory facts: clause identifiers, thresholds, tables, lexicon references and applicability predicates. Neither evaluator may hard-code any of them (P6). This schema is also the interpreter's vocabulary: check kinds and predicate operators are closed enums, so a pack cannot name a check that no evaluator implements — an unknown kind fails the build rather than silently doing nothing (§15.4). Adding a kind is a deliberate schema change made together with both evaluators. The pack carries no content hash of itself: the hash recorded in a verdict envelope is computed over the canonical serialisation at load time, because a hash stored inside the object it digests can only ever be stale.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "metadata",
+    "fields",
+    "applicability_gates",
+    "declarations"
+  ],
+  "properties": {
+    "$schema": {
+      "type": "string",
+      "description": "Optional editor hint. Ignored by both evaluators."
+    },
+    "schema_version": {
+      "const": "2.0",
+      "description": "Version of this schema, not of the pack. Bumped only when the contract changes."
+    },
+    "metadata": { "$ref": "#/$defs/metadata" },
+    "fields": {
+      "type": "array",
+      "minItems": 1,
+      "description": "The pack's own field vocabulary — the names the extraction cascade produces and the rules consume. Declared here rather than in code so that no field name is hard-coded (P6).",
+      "items": { "$ref": "#/$defs/field" }
+    },
+    "applicability_gates": {
+      "type": "array",
+      "description": "Evaluated before any declaration (P5). May be empty, but the key is required: an absent gate list and a deliberate 'no gates apply' must not look the same (P9).",
+      "items": { "$ref": "#/$defs/gate" }
+    },
+    "declarations": {
+      "type": "array",
+      "minItems": 1,
+      "description": "One rule per finding. A field checked three ways is three rules, so that every finding carries exactly one citation.",
+      "items": { "$ref": "#/$defs/declaration_rule" }
+    },
+    "geometry_rules": {
+      "type": "array",
+      "description": "Rules over box geometry rather than text (plan §4.3, §8.2).",
+      "items": { "$ref": "#/$defs/geometry_rule" }
+    },
+    "tables": {
+      "type": "array",
+      "description": "Named lookup data referenced by checks — height bands, legal unit sets, accepted phrase sets.",
+      "items": { "$ref": "#/$defs/table" }
+    },
+    "lexicons": {
+      "type": "array",
+      "description": "Declared references to rulepack/lexicons/*.json. The lexicon file format itself is T-2.5; a pack only names the lexicons its checks may use.",
+      "items": { "$ref": "#/$defs/lexicon_ref" }
+    }
+  },
+
+  "$defs": {
+    "localized_text": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["en"],
+      "description": "English is mandatory; Hindi is optional so a pack is never blocked on translation. A missing 'hi' must surface in the UI as an untranslated string, never as a silently English one (P9).",
+      "properties": {
+        "en": { "type": "string", "minLength": 1 },
+        "hi": { "type": "string", "minLength": 1 }
+      }
+    },
+
+    "identifier": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$",
+      "minLength": 2,
+      "maxLength": 80
+    },
+
+    "semver": {
+      "type": "string",
+      "pattern": "^(0|[1-9]\\d*)\\.(0|[1-9]\\d*)\\.(0|[1-9]\\d*)$"
+    },
+
+    "iso_date": {
+      "type": "string",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+    },
+
+    "severity": {
+      "enum": ["violation", "advisory"],
+      "description": "P3: an uncertain finding is an advisory, never a violation."
+    },
+
+    "confidence": { "enum": ["high", "medium", "low"] },
+
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source", "status", "reviewed_by", "reviewed_on"],
+      "description": "Attached to every statutory object in the pack. All four keys are required — including the nulls — so that an unreviewed entry is explicit rather than merely unannotated.",
+      "properties": {
+        "source": {
+          "type": "string",
+          "minLength": 10,
+          "description": "The statutory text this derives from, precisely enough for a reviewer to find it. e.g. 'LMPC 2011, Rule 7 read with the Second Schedule'."
+        },
+        "status": {
+          "enum": ["PENDING_LEGAL_REVIEW", "REVIEWED", "DISPUTED"],
+          "description": "DISPUTED records a known conflict between readings — e.g. the unresolved sub-clause letters for MRP and date. Like PENDING_LEGAL_REVIEW it is capped at advisory."
+        },
+        "reviewed_by": {
+          "type": ["string", "null"],
+          "minLength": 2,
+          "description": "Name and designation of the Legal Metrology officer or law reviewer. Null until reviewed."
+        },
+        "reviewed_on": {
+          "type": ["string", "null"],
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$"
+        },
+        "notes": { "type": "string" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "status": { "const": "REVIEWED" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "reviewed_by": { "type": "string" },
+              "reviewed_on": { "type": "string" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "status": { "const": "PENDING_LEGAL_REVIEW" } },
+            "required": ["status"]
+          },
+          "then": {
+            "properties": {
+              "reviewed_by": { "type": "null" },
+              "reviewed_on": { "type": "null" }
+            }
+          }
+        }
+      ]
+    },
+
+    "clause": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["statute", "rule"],
+      "description": "The citation a finding carries (P1). Every flag names a statute, a rule and, where one exists, a sub-clause.",
+      "properties": {
+        "statute": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*(-[A-Z0-9]+)*$",
+          "description": "e.g. LMPC-2011, FSSAI-LDR-2020, BIS-CRS."
+        },
+        "rule": { "type": "string", "minLength": 1 },
+        "sub_clause": { "type": ["string", "null"] },
+        "schedule": { "type": "string" },
+        "alternate_readings": {
+          "type": "array",
+          "description": "Competing citations for the same requirement, recorded rather than silently resolved. The unresolved MRP and date sub-clause letters live here until an officer confirms one.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["rule", "source"],
+            "properties": {
+              "rule": { "type": "string", "minLength": 1 },
+              "sub_clause": { "type": ["string", "null"] },
+              "source": { "type": "string", "minLength": 3 },
+              "note": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
+    "field": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "title", "value_type"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "title": { "$ref": "#/$defs/localized_text" },
+        "description": { "type": "string" },
+        "value_type": {
+          "enum": [
+            "text",
+            "quantity",
+            "currency_amount",
+            "date_month_year",
+            "identifier",
+            "phrase",
+            "boolean"
+          ]
+        }
+      }
+    },
+
+    "predicate": {
+      "description": "Boolean expression over extracted facts. Recursive; leaves name a fact path from a closed namespace, so a pack cannot reach for a fact no evaluator supplies.",
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["all"],
+          "properties": {
+            "all": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/predicate" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["any"],
+          "properties": {
+            "any": {
+              "type": "array",
+              "minItems": 1,
+              "items": { "$ref": "#/$defs/predicate" }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["not"],
+          "properties": { "not": { "$ref": "#/$defs/predicate" } }
+        },
+        { "$ref": "#/$defs/predicate_leaf" }
+      ]
+    },
+
+    "predicate_leaf": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["var", "op"],
+      "properties": {
+        "var": {
+          "type": "string",
+          "pattern": "^(package|fields|category|identity|geometry|officer|exemptions)(\\.[a-z0-9_]+)*$",
+          "description": "Dotted path into the evaluator's fact namespace. The roots are fixed by the interpreter contract."
+        },
+        "op": {
+          "enum": [
+            "present",
+            "absent",
+            "eq",
+            "ne",
+            "lt",
+            "lte",
+            "gt",
+            "gte",
+            "in",
+            "matches",
+            "matches_lexicon"
+          ]
+        },
+        "value": {
+          "description": "Omitted for 'present' and 'absent'. A regex string for 'matches', a lexicon id for 'matches_lexicon', an array for 'in'."
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "op": { "enum": ["present", "absent"] } },
+            "required": ["op"]
+          },
+          "then": { "not": { "required": ["value"] } },
+          "else": { "required": ["value"] }
+        },
+        {
+          "if": {
+            "properties": { "op": { "const": "in" } },
+            "required": ["op"]
+          },
+          "then": { "properties": { "value": { "type": "array" } } }
+        },
+        {
+          "if": {
+            "properties": { "op": { "enum": ["matches", "matches_lexicon"] } },
+            "required": ["op"]
+          },
+          "then": { "properties": { "value": { "type": "string" } } }
+        }
+      ]
+    },
+
+    "effect": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind"],
+      "description": "What a gate outcome does to the rest of the evaluation (plan §4.1).",
+      "properties": {
+        "kind": {
+          "enum": [
+            "in_scope",
+            "out_of_scope",
+            "exempt",
+            "suppress_declarations",
+            "activate_tags",
+            "restrict_to_tags",
+            "ask_officer"
+          ]
+        },
+        "cites": { "$ref": "#/$defs/clause" },
+        "declarations": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/identifier" },
+          "description": "Declaration rule ids. Existence is checked by the referential-integrity pass."
+        },
+        "tags": { "type": "array", "items": { "$ref": "#/$defs/identifier" } },
+        "note": { "$ref": "#/$defs/localized_text" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "const": "exempt" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "required": ["cites"],
+            "description": "An exemption must name the provision that exempts. 'No action required' without a citation is not an answer an officer can defend."
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "suppress_declarations" } },
+            "required": ["kind"]
+          },
+          "then": { "required": ["declarations"] }
+        },
+        {
+          "if": {
+            "properties": {
+              "kind": { "enum": ["activate_tags", "restrict_to_tags"] }
+            },
+            "required": ["kind"]
+          },
+          "then": { "required": ["tags"] }
+        }
+      ]
+    },
+
+    "gate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "order",
+        "title",
+        "provenance",
+        "test",
+        "when_true",
+        "when_false"
+      ],
+      "description": "An applicability gate. Both branches are required: a gate that states only what happens when it fires hides its own default.",
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "order": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Evaluation order. Unique within the pack."
+        },
+        "title": { "$ref": "#/$defs/localized_text" },
+        "description": { "type": "string" },
+        "clause": { "$ref": "#/$defs/clause" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "test": { "$ref": "#/$defs/predicate" },
+        "when_true": { "$ref": "#/$defs/effect" },
+        "when_false": { "$ref": "#/$defs/effect" },
+        "indeterminate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["officer_question", "default_effect"],
+          "description": "The third outcome of §4.1: the officer is asked one disambiguating question. The default applies until they answer.",
+          "properties": {
+            "officer_question": { "$ref": "#/$defs/localized_text" },
+            "default_effect": { "$ref": "#/$defs/effect" }
+          }
+        }
+      }
+    },
+
+    "rule_base": {
+      "type": "object",
+      "required": [
+        "id",
+        "clause",
+        "title",
+        "provenance",
+        "max_severity",
+        "confidence",
+        "check"
+      ],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "clause": { "$ref": "#/$defs/clause" },
+        "title": { "$ref": "#/$defs/localized_text" },
+        "detail_template": {
+          "$ref": "#/$defs/localized_text",
+          "description": "Finding detail with {placeholder} slots filled from the extracted facts."
+        },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "max_severity": {
+          "$ref": "#/$defs/severity",
+          "description": "The most severe finding this rule may emit. Capped at 'advisory' unless the entry is REVIEWED — an unverified threshold can never generate an accusation."
+        },
+        "confidence": { "$ref": "#/$defs/confidence" },
+        "applies_when": { "$ref": "#/$defs/predicate" },
+        "tags": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/identifier" },
+          "description": "Subsets a gate can activate or restrict to — institutional, multi_piece, imported."
+        },
+        "evidence_fields": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/identifier" },
+          "description": "Fields whose boxes are cropped as the evidence a human looks at (P7)."
+        },
+        "enabled": { "type": "boolean", "default": true }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "max_severity": { "const": "violation" } },
+            "required": ["max_severity"]
+          },
+          "then": {
+            "required": ["evidence_fields"],
+            "properties": {
+              "provenance": {
+                "properties": { "status": { "const": "REVIEWED" } }
+              },
+              "evidence_fields": { "minItems": 1 }
+            },
+            "description": "Two invariants in one place: a violation must be reviewed (the §15.4 unreviewed-thresholds gate) and must carry evidence (P7)."
+          }
+        }
+      ]
+    },
+
+    "declaration_rule": {
+      "allOf": [
+        { "$ref": "#/$defs/rule_base" },
+        {
+          "type": "object",
+          "required": ["field"],
+          "properties": {
+            "field": {
+              "$ref": "#/$defs/identifier",
+              "description": "The field this rule is about. Must exist in the pack's field vocabulary."
+            },
+            "check": { "$ref": "#/$defs/declaration_check" }
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Closes the object. $ref does not compose with additionalProperties, so the permitted key set is restated here.",
+          "properties": {
+            "id": true,
+            "clause": true,
+            "title": true,
+            "detail_template": true,
+            "provenance": true,
+            "max_severity": true,
+            "confidence": true,
+            "applies_when": true,
+            "tags": true,
+            "evidence_fields": true,
+            "enabled": true,
+            "field": true,
+            "check": true
+          }
+        }
+      ]
+    },
+
+    "geometry_rule": {
+      "allOf": [
+        { "$ref": "#/$defs/rule_base" },
+        {
+          "type": "object",
+          "properties": { "check": { "$ref": "#/$defs/geometry_check" } }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Closes the object. $ref does not compose with additionalProperties, so the permitted key set is restated here.",
+          "properties": {
+            "id": true,
+            "clause": true,
+            "title": true,
+            "detail_template": true,
+            "provenance": true,
+            "max_severity": true,
+            "confidence": true,
+            "applies_when": true,
+            "tags": true,
+            "evidence_fields": true,
+            "enabled": true,
+            "check": true
+          }
+        }
+      ]
+    },
+
+    "declaration_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "params"],
+      "properties": {
+        "kind": {
+          "enum": [
+            "field_present",
+            "pattern_match",
+            "phrase_required",
+            "unit_legal",
+            "symbol_case",
+            "date_parseable",
+            "single_value",
+            "token_present",
+            "arithmetic_reconcile",
+            "lexicon_match",
+            "script_present"
+          ]
+        },
+        "params": { "type": "object" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "kind": { "enum": ["field_present", "single_value"] }
+            },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": { "params": { "$ref": "#/$defs/params_empty" } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "pattern_match" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "params": { "$ref": "#/$defs/params_pattern_match" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "phrase_required" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "params": { "$ref": "#/$defs/params_phrase_required" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "enum": ["unit_legal", "symbol_case"] } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": { "params": { "$ref": "#/$defs/params_unit_check" } }
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "date_parseable" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "params": { "$ref": "#/$defs/params_date_parseable" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "token_present" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "params": { "$ref": "#/$defs/params_token_present" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "arithmetic_reconcile" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "params": { "$ref": "#/$defs/params_arithmetic_reconcile" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "lexicon_match" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "params": { "$ref": "#/$defs/params_lexicon_match" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "script_present" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "params": { "$ref": "#/$defs/params_script_present" }
+            }
+          }
+        }
+      ]
+    },
+
+    "geometry_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kind", "params", "requires_scale_reference"],
+      "description": "P4 made structural: every geometry check states whether it can produce a millimetre figure at all. A check that requires a scale reference and has none must emit an advisory with measurement null — it may not guess.",
+      "properties": {
+        "kind": {
+          "enum": [
+            "height_min_from_table",
+            "height_parity",
+            "min_separation",
+            "co_location"
+          ]
+        },
+        "requires_scale_reference": { "type": "boolean" },
+        "params": { "type": "object" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "const": "height_min_from_table" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "params": { "$ref": "#/$defs/params_height_min_from_table" },
+              "requires_scale_reference": { "const": true }
+            },
+            "description": "An absolute height in millimetres is unobtainable without a scale reference. Declaring otherwise would breach P4, so the schema fixes the value."
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "height_parity" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "params": { "$ref": "#/$defs/params_height_parity" },
+              "requires_scale_reference": { "const": false }
+            },
+            "description": "A ratio between two boxes in the same frame needs no scale reference — which is why Rule 8(2) parity is the geometry check to lead with (§4.3)."
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "min_separation" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "params": { "$ref": "#/$defs/params_min_separation" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "co_location" } },
+            "required": ["kind"]
+          },
+          "then": {
+            "properties": {
+              "params": { "$ref": "#/$defs/params_co_location" },
+              "requires_scale_reference": { "const": false }
+            }
+          }
+        }
+      ]
+    },
+
+    "params_empty": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {}
+    },
+
+    "params_pattern_match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pattern"],
+      "properties": {
+        "pattern": { "type": "string", "format": "regex", "minLength": 1 },
+        "flags": { "type": "string", "pattern": "^[imsu]*$" },
+        "must_match": { "type": "boolean", "default": true }
+      }
+    },
+
+    "params_phrase_required": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["phrase_table"],
+      "description": "The 'inclusive of all taxes' family: an accepted phrase set matched tolerantly against OCR noise, abbreviation and line wrapping (§4.2).",
+      "properties": {
+        "phrase_table": { "$ref": "#/$defs/identifier" },
+        "min_similarity": { "type": "number", "minimum": 0, "maximum": 1 },
+        "scope": { "enum": ["field", "declaration_block", "panel"] }
+      }
+    },
+
+    "params_unit_check": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_table"],
+      "properties": { "unit_table": { "$ref": "#/$defs/identifier" } }
+    },
+
+    "params_date_parseable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["formats", "not_future"],
+      "properties": {
+        "formats": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "type": "string" }
+        },
+        "not_future": { "type": "boolean" },
+        "max_age_months": { "type": ["integer", "null"], "minimum": 1 }
+      }
+    },
+
+    "params_token_present": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "pattern"],
+      "description": "A structural token inside a larger field — the 6-digit PIN-like token an address must contain, for instance.",
+      "properties": {
+        "name": { "$ref": "#/$defs/identifier" },
+        "pattern": { "type": "string", "format": "regex", "minLength": 1 }
+      }
+    },
+
+    "params_arithmetic_reconcile": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["left_field", "operator", "right_fields", "tolerance_ratio"],
+      "description": "Unit price times unit count against pack MRP (§4.2). Zero false-positive risk when both numbers parse; the evaluator must abstain, not guess, when either does not.",
+      "properties": {
+        "left_field": { "$ref": "#/$defs/identifier" },
+        "operator": { "enum": ["product", "sum"] },
+        "right_fields": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "tolerance_ratio": { "type": "number", "minimum": 0, "maximum": 1 }
+      }
+    },
+
+    "params_lexicon_match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["lexicon"],
+      "properties": {
+        "lexicon": { "$ref": "#/$defs/identifier" },
+        "min_score": { "type": "number", "minimum": 0 },
+        "margin": {
+          "type": "number",
+          "minimum": 0,
+          "description": "The winner must beat the runner-up by this much or the result is 'generic' (§4.6)."
+        }
+      }
+    },
+
+    "params_script_present": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["scripts", "mode"],
+      "properties": {
+        "scripts": {
+          "type": "array",
+          "minItems": 1,
+          "items": { "enum": ["latin", "devanagari"] }
+        },
+        "mode": { "enum": ["any_of", "all_of"] }
+      }
+    },
+
+    "params_height_min_from_table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["table", "basis_var"],
+      "properties": {
+        "table": { "$ref": "#/$defs/identifier" },
+        "basis_var": {
+          "type": "string",
+          "pattern": "^(package|geometry)(\\.[a-z0-9_]+)*$"
+        },
+        "print_kind_var": {
+          "type": "string",
+          "pattern": "^(package|geometry)(\\.[a-z0-9_]+)*$",
+          "description": "Selects the column — normal print versus embossed, moulded, blown or perforated."
+        }
+      }
+    },
+
+    "params_height_parity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_a", "field_b", "tolerance_ratio"],
+      "properties": {
+        "field_a": { "$ref": "#/$defs/identifier" },
+        "field_b": { "$ref": "#/$defs/identifier" },
+        "tolerance_ratio": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 1,
+          "description": "Slack absorbing OCR box tightness, not a statutory allowance."
+        }
+      }
+    },
+
+    "params_min_separation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["field_a", "field_b"],
+      "properties": {
+        "field_a": { "$ref": "#/$defs/identifier" },
+        "field_b": { "$ref": "#/$defs/identifier" },
+        "min_mm": { "type": ["number", "null"], "minimum": 0 },
+        "min_ratio_of_height": { "type": ["number", "null"], "minimum": 0 }
+      }
+    },
+
+    "params_co_location": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["fields", "max_gap_ratio"],
+      "properties": {
+        "fields": {
+          "type": "array",
+          "minItems": 2,
+          "items": { "$ref": "#/$defs/identifier" }
+        },
+        "max_gap_ratio": { "type": "number", "minimum": 0 }
+      }
+    },
+
+    "table": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "kind", "title", "provenance"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "kind": { "enum": ["band_lookup", "unit_set", "phrase_set"] },
+        "title": { "$ref": "#/$defs/localized_text" },
+        "clause": { "$ref": "#/$defs/clause" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "unit": { "type": "string" },
+        "basis": {
+          "type": "string",
+          "description": "What the band boundaries are measured in — e.g. area_of_principal_display_panel_cm2."
+        },
+        "bands": {
+          "type": "array",
+          "minItems": 1,
+          "description": "Ascending by 'max'. Exactly one band carries max: null and it must be last — the open-ended top band. Checked by the referential-integrity pass.",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["max", "values"],
+            "properties": {
+              "max": { "type": ["number", "null"], "exclusiveMinimum": 0 },
+              "values": {
+                "type": "object",
+                "minProperties": 1,
+                "additionalProperties": { "type": "number" }
+              }
+            }
+          }
+        },
+        "units": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["symbol", "quantity_kind", "legal"],
+            "properties": {
+              "symbol": { "type": "string", "minLength": 1 },
+              "quantity_kind": { "type": "string", "minLength": 1 },
+              "legal": {
+                "type": "boolean",
+                "description": "False entries are the recognised-but-wrong forms — 'gms', 'ML' — that a symbol_case check flags."
+              },
+              "canonical": { "type": "string" },
+              "variants": { "type": "array", "items": { "type": "string" } }
+            }
+          }
+        },
+        "phrases": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["text", "language"],
+            "properties": {
+              "text": { "type": "string", "minLength": 1 },
+              "language": { "enum": ["en", "hi"] },
+              "note": { "type": "string" }
+            }
+          }
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "kind": { "const": "band_lookup" } },
+            "required": ["kind"]
+          },
+          "then": { "required": ["unit", "basis", "bands"] }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "unit_set" } },
+            "required": ["kind"]
+          },
+          "then": { "required": ["units"] }
+        },
+        {
+          "if": {
+            "properties": { "kind": { "const": "phrase_set" } },
+            "required": ["kind"]
+          },
+          "then": { "required": ["phrases"] }
+        }
+      ]
+    },
+
+    "lexicon_ref": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "path", "language"],
+      "properties": {
+        "id": { "$ref": "#/$defs/identifier" },
+        "path": {
+          "type": "string",
+          "pattern": "^lexicons/[a-z0-9_-]+\\.json$",
+          "description": "Relative to rulepack/. Existence is checked by the referential-integrity pass."
+        },
+        "language": { "enum": ["en", "hi"] },
+        "description": { "type": "string" }
+      }
+    },
+
+    "metadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "version",
+        "statute",
+        "title",
+        "amendments_through",
+        "provenance"
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+          "description": "Matches the filename stem — lmpc-2011, extended-fssai."
+        },
+        "version": { "$ref": "#/$defs/semver" },
+        "statute": {
+          "type": "string",
+          "pattern": "^[A-Z][A-Z0-9]*(-[A-Z0-9]+)*$"
+        },
+        "title": { "$ref": "#/$defs/localized_text" },
+        "description": { "type": "string" },
+        "jurisdiction": {
+          "type": "string",
+          "pattern": "^[A-Z]{2}$",
+          "default": "IN"
+        },
+        "amendments_through": {
+          "oneOf": [{ "$ref": "#/$defs/iso_date" }, { "type": "null" }],
+          "description": "The last amendment the pack reflects. Null means unknown, which is a statement in itself (P9)."
+        },
+        "provenance": { "$ref": "#/$defs/provenance" }
+      }
+    }
+  }
+}

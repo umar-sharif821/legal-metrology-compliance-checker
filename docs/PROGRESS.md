@@ -3,19 +3,30 @@
 > Single source of truth for project state. Updated by `/handoff`, read by `/pickup`.
 > Keep it terse. This file is read in full every session — every line costs tokens.
 
-**Last updated:** 2026-09-10 · **Sessions completed:** 1 · **Current sprint:** 1
+**Last updated:** 2026-09-10 · **Sessions completed:** 2 · **Current sprint:** 1
 
 ---
 
 ## Now
 
-**Next task:** `T-1.2` — `rulepack/schema/rulepack.schema.json` (plan §4.5, §5.2)
+**Next task:** `T-1.3` — `rulepack/lmpc-2011.json`, Rule 6 universal declarations (plan §4.2)
 **Status:** not started
 **Blocked on:** nothing
 
-Scaffold is in and every gate that can run, runs green: `npm run format:check`,
-`npm run lint`, `npm run typecheck`, `npm test`, `ruff check .`, `ruff format --check .`,
-`pytest`, `npm audit`. Run them before and after any change.
+Read `rulepack/schema/README.md` first — it is the authoring guide, and shorter than the
+schema. `rulepack/schema/examples/valid/full-featured.json` is the worked reference:
+every construct the schema allows, with `EXAMPLE` clause numbers. Copy its shape.
+
+For T-1.3 specifically: the pack needs `fields` (its own field vocabulary),
+`applicability_gates: []` (the key is required even though gates are T-1.5), and one
+declaration rule per finding — a field checked three ways is three rules, so each finding
+carries exactly one citation. Everything starts `PENDING_LEGAL_REVIEW`, which the schema
+caps at `max_severity: advisory`. Contested sub-clause letters go in
+`clause.alternate_readings`, not resolved silently. Validate with `python rulepack/validate.py`.
+
+Nine gates now run green: `npm run format:check`, `npm run lint`, `npm run typecheck`,
+`npm test`, `ruff check .`, `ruff format --check .`, `pytest`, `npm audit`, and
+`python rulepack/validate.py`. Run them before and after any change.
 
 Setup on a fresh clone: `npm install` and `python -m pip install -r requirements-dev.txt`.
 
@@ -48,6 +59,15 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-10` `.gitattributes` forces `eol=lf` repo-wide. Windows host, Linux CI — without it Prettier's `endOfLine: lf` check fails on a fresh Windows clone.
 - `2026-09-10` Prettier does not touch `docs/`, `.claude/` or any `*.md`. The plan uses custom `~~~t|` table and `:::` admonition syntax that Prettier mangles.
 - `2026-09-10` CI gates that cannot run yet exist as jobs emitting a GitHub `::notice::` NOT IMPLEMENTED and exiting 0 — never omitted, never silently green (P9). Each guards on the file it needs and turns into a hard `::error::` failure the moment that file exists without its gate wired. So `T-1.2` creating the schema **will red the `rulepack-schema` job** until the validator step is written in the same task. Same for `T-1.3` → `unreviewed-thresholds`, `T-1.9` → `conformance`, `T-2.9` → `accuracy-regression`.
+- `2026-09-10` Rule-pack schema is Draft 2020-12, `schema_version: "2.0"`, in `rulepack/schema/rulepack.schema.json`. Top-level keys: `metadata`, `fields`, `applicability_gates`, `declarations`, `geometry_rules`, `tables`, `lexicons`.
+- `2026-09-10` The schema is the interpreter's vocabulary as well as the data contract: `check.kind`, `effect.kind` and predicate ops are **closed enums**, and every params object is closed. Adding a check kind is a deliberate schema change made together with both evaluators plus a conformance fixture. That friction is intended.
+- `2026-09-10` A pack declares its own `fields` vocabulary; rules reference field ids from it. No field name is hard-coded in either runtime (P6).
+- `2026-09-10` Advisory-only invariant is enforced **structurally**: the schema refuses `max_severity: violation` unless `provenance.status` is `REVIEWED`. `DISPUTED` is capped at advisory too. T-1.9's gate still owns the evaluator-behaviour half.
+- `2026-09-10` A rule that can emit a violation must carry `evidence_fields` (P7) — schema-enforced. `height_min_from_table` must declare `requires_scale_reference: true` and `height_parity` must declare `false` (P4) — both fixed by the schema, not left to the author.
+- `2026-09-10` Packs store no hash of themselves. The `sha256` in a verdict envelope is computed over the canonical serialisation at load time; a hash inside the object it digests can only be stale.
+- `2026-09-10` `rulepack/validate.py` is owned by the pack, not by either evaluator — it needs only `jsonschema`. It runs meta + schema + referential passes and the negative suite. CI's `rulepack-schema` job is now `python rulepack/validate.py` and is a real gate.
+- `2026-09-10` Referential integrity (ids resolve, table refs are of the right kind, band tables ascending with one open top band, regexes compile) lives in `validate.py`, not the schema — JSON Schema cannot express cross-references, and §15.4 requires unknown ids to fail the build.
+- `2026-09-10` Everything under `rulepack/schema/examples/` is a fixture, never a rule pack: statute code `EXAMPLE`, clause numbers `0(1)(x)`, placeholder reviewer names. `validate.py` treats only `rulepack/*.json` as real packs.
 
 ---
 
@@ -66,8 +86,15 @@ Noticed but deliberately out of scope for now. Do not action without asking.
 
 - `docs/ARCHITECTURE.md` and `docs/DEMO_SCRIPT.md` are listed in plan §18 but no task
   on the board creates them. Assign them before Sprint 6 (`T-6.5` needs the demo script).
-- No pre-commit hook. The eight checks are run by hand; nothing stops a bad commit
+- No pre-commit hook. The nine checks are run by hand; nothing stops a bad commit
   locally, and CI has never executed because the repo has no remote.
+- **No JSON Schema for the verdict envelope.** `rulepack.schema.json` covers the rule
+  pack (input); plan §4.5 also specifies the envelope both evaluators emit (output), and
+  no task on the board creates a schema for it. `T-1.9` compares verdicts byte-identically,
+  which will catch divergence but not a shape both evaluators get wrong together. Decide
+  before `T-1.7` whether the envelope gets its own schema.
+- `rulepack/CHANGELOG.md` is in the plan §18 layout ("every clause change, dated, with
+  reviewer") but no task creates it. Fold it into `T-1.3`, which writes the first pack.
 
 ---
 
@@ -79,7 +106,7 @@ Status: `[ ]` todo · `[>]` in progress · `[x]` done · `[!]` blocked · `[~]` 
 *Goal: both evaluators produce identical clause-cited verdicts from a JSON field set.*
 
 - [x] `T-1.1` Repo scaffold — monorepo dirs, tooling, lint/format, CI workflow stub · *plan §18*
-- [ ] `T-1.2` `rulepack/schema/rulepack.schema.json` — rule-pack JSON Schema · *plan §4.5, §5.2*
+- [x] `T-1.2` `rulepack/schema/rulepack.schema.json` — rule-pack JSON Schema · *plan §4.5, §5.2*
 - [ ] `T-1.3` `rulepack/lmpc-2011.json` — Rule 6 universal declarations · *plan §4.2*
 - [ ] `T-1.4` Rule 7 height table, Rule 8(2) parity, Rule 9 spacing entries · *plan §4.3*
 - [ ] `T-1.5` Applicability gate predicates · *plan §4.1*

@@ -1,0 +1,591 @@
+{
+  "description": "The negative half of the schema's own test suite. Each case mutates valid/minimal.json in exactly one way and asserts the validator rejects it for the stated reason. A schema is only as good as what it refuses, and 'contains' pins the rejection to the right cause — a case that starts failing for some other reason is a regression, not a pass.",
+  "base": "valid/minimal.json",
+  "cases": [
+    {
+      "name": "pending_review_may_not_emit_violation",
+      "why": "Working agreement and §15.4: an unreviewed entry can never produce an accusation.",
+      "stage": "schema",
+      "contains": "REVIEWED",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/max_severity",
+          "value": "violation"
+        }
+      ]
+    },
+    {
+      "name": "disputed_review_may_not_emit_violation",
+      "why": "A known conflict between readings is not a settled rule (the unresolved sub-clause letters).",
+      "stage": "schema",
+      "contains": "REVIEWED",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/max_severity",
+          "value": "violation"
+        },
+        {
+          "op": "set",
+          "path": "/declarations/0/provenance/status",
+          "value": "DISPUTED"
+        }
+      ]
+    },
+    {
+      "name": "violation_requires_evidence",
+      "why": "P7: every flag carries the image region a human can look at to disagree.",
+      "stage": "schema",
+      "contains": "evidence_fields",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/max_severity",
+          "value": "violation"
+        },
+        {
+          "op": "set",
+          "path": "/declarations/0/provenance/status",
+          "value": "REVIEWED"
+        },
+        {
+          "op": "set",
+          "path": "/declarations/0/provenance/reviewed_by",
+          "value": "EXAMPLE FIXTURE — not a real reviewer"
+        },
+        {
+          "op": "set",
+          "path": "/declarations/0/provenance/reviewed_on",
+          "value": "2026-01-01"
+        },
+        { "op": "delete", "path": "/declarations/0/evidence_fields" }
+      ]
+    },
+    {
+      "name": "reviewed_requires_a_named_reviewer",
+      "why": "REVIEWED with nobody's name against it is indistinguishable from unreviewed.",
+      "stage": "schema",
+      "contains": "'string'",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/provenance/status",
+          "value": "REVIEWED"
+        }
+      ]
+    },
+    {
+      "name": "pending_review_may_not_name_a_reviewer",
+      "why": "A reviewer's name on a PENDING entry misrepresents them as having signed it off.",
+      "stage": "schema",
+      "contains": "'null'",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/provenance/reviewed_by",
+          "value": "Someone who did not review this"
+        }
+      ]
+    },
+    {
+      "name": "provenance_is_not_optional",
+      "why": "An entry with no stated source cannot be reviewed, so it cannot be trusted.",
+      "stage": "schema",
+      "contains": "provenance",
+      "mutations": [{ "op": "delete", "path": "/declarations/0/provenance" }]
+    },
+    {
+      "name": "rule_keys_are_closed",
+      "why": "A misspelled key on a rule reads as a setting that is in force and is not. $ref does not compose with additionalProperties, so rule_base's key set is restated in declaration_rule and geometry_rule to close them - an unusual construction worth a standing guard.",
+      "stage": "schema",
+      "contains": "Additional properties",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/max_severty",
+          "value": "advisory"
+        }
+      ]
+    },
+    {
+      "name": "unknown_check_kind_fails_the_build",
+      "why": "§15.4. A check no evaluator implements must fail loudly, not silently do nothing.",
+      "stage": "schema",
+      "contains": "is not one of",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/check/kind",
+          "value": "vibes_check"
+        }
+      ]
+    },
+    {
+      "name": "check_params_are_closed",
+      "why": "A misspelled parameter would otherwise be silently ignored by both evaluators.",
+      "stage": "schema",
+      "contains": "Additional properties",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/check/kind",
+          "value": "unit_legal"
+        },
+        {
+          "op": "set",
+          "path": "/declarations/0/check/params",
+          "value": { "unit_table": "si_units", "unit_tabel": "typo" }
+        }
+      ]
+    },
+    {
+      "name": "predicate_var_outside_the_fact_namespace",
+      "why": "A pack may only reach for facts the evaluators actually supply.",
+      "stage": "schema",
+      "contains": "does not match",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/applies_when",
+          "value": { "var": "secrets.api_key", "op": "present" }
+        }
+      ]
+    },
+    {
+      "name": "presence_predicate_takes_no_value",
+      "why": "A value on a 'present' test reads as a comparison that is never performed.",
+      "stage": "schema",
+      "contains": "value",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/applies_when",
+          "value": {
+            "var": "package.is_multi_piece",
+            "op": "present",
+            "value": true
+          }
+        }
+      ]
+    },
+    {
+      "name": "exemption_must_cite_the_exempting_provision",
+      "why": "§4.1. 'No action required' without a citation is not an answer an officer can defend.",
+      "stage": "schema",
+      "contains": "cites",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/applicability_gates/-",
+          "value": {
+            "id": "small_quantity_exemption",
+            "order": 0,
+            "title": { "en": "Small-quantity exemption" },
+            "provenance": {
+              "source": "Not a statutory source — schema fixture only.",
+              "status": "PENDING_LEGAL_REVIEW",
+              "reviewed_by": null,
+              "reviewed_on": null
+            },
+            "test": {
+              "var": "package.net_quantity_g",
+              "op": "lte",
+              "value": 10
+            },
+            "when_true": { "kind": "exempt" },
+            "when_false": { "kind": "in_scope" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "gate_must_state_both_branches",
+      "why": "A gate that says only what happens when it fires hides its own default.",
+      "stage": "schema",
+      "contains": "when_false",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/applicability_gates/-",
+          "value": {
+            "id": "pre_packaged",
+            "order": 0,
+            "title": { "en": "Is the commodity pre-packaged?" },
+            "provenance": {
+              "source": "Not a statutory source — schema fixture only.",
+              "status": "PENDING_LEGAL_REVIEW",
+              "reviewed_by": null,
+              "reviewed_on": null
+            },
+            "test": {
+              "var": "package.is_pre_packaged",
+              "op": "eq",
+              "value": true
+            },
+            "when_true": { "kind": "in_scope" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "parity_check_may_not_claim_to_need_a_scale_reference",
+      "why": "P4 in both directions: a ratio between two boxes in one frame needs no scale, and saying it does would justify a millimetre figure the method cannot support.",
+      "stage": "schema",
+      "contains": "expected",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/geometry_rules",
+          "value": [
+            {
+              "id": "mrp_net_quantity_height_parity",
+              "clause": { "statute": "EXAMPLE", "rule": "0(8)(2)" },
+              "title": {
+                "en": "MRP numerals are smaller than the net-quantity numerals"
+              },
+              "provenance": {
+                "source": "Not a statutory source — schema fixture only.",
+                "status": "PENDING_LEGAL_REVIEW",
+                "reviewed_by": null,
+                "reviewed_on": null
+              },
+              "max_severity": "advisory",
+              "confidence": "high",
+              "evidence_fields": ["net_quantity"],
+              "check": {
+                "kind": "height_parity",
+                "requires_scale_reference": true,
+                "params": {
+                  "field_a": "net_quantity",
+                  "field_b": "net_quantity",
+                  "tolerance_ratio": 0.1
+                }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "unknown_key_at_the_root",
+      "why": "A pack key nothing reads is a rule the officer believes is running and is not.",
+      "stage": "schema",
+      "contains": "Additional properties",
+      "mutations": [{ "op": "set", "path": "/rules", "value": [] }]
+    },
+    {
+      "name": "rule_may_not_reference_an_undeclared_field",
+      "why": "§15.4: unknown ids fail the build.",
+      "stage": "references",
+      "contains": "unknown field",
+      "mutations": [
+        { "op": "set", "path": "/declarations/0/field", "value": "not_a_field" }
+      ]
+    },
+    {
+      "name": "evidence_may_not_reference_an_undeclared_field",
+      "why": "An evidence crop of a field that does not exist leaves a finding with no evidence.",
+      "stage": "references",
+      "contains": "unknown field",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/evidence_fields",
+          "value": ["ghost_field"]
+        }
+      ]
+    },
+    {
+      "name": "rule_ids_must_be_unique",
+      "why": "A finding cites a rule id. Two rules sharing one id make the citation ambiguous.",
+      "stage": "references",
+      "contains": "duplicate",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/-",
+          "value": {
+            "id": "net_quantity_present",
+            "field": "net_quantity",
+            "clause": {
+              "statute": "EXAMPLE",
+              "rule": "0(1)(c)",
+              "sub_clause": "c"
+            },
+            "title": { "en": "Duplicate id" },
+            "provenance": {
+              "source": "Not a statutory source — schema fixture only.",
+              "status": "PENDING_LEGAL_REVIEW",
+              "reviewed_by": null,
+              "reviewed_on": null
+            },
+            "max_severity": "advisory",
+            "confidence": "high",
+            "evidence_fields": ["net_quantity"],
+            "check": { "kind": "field_present", "params": {} }
+          }
+        }
+      ]
+    },
+    {
+      "name": "check_may_not_reference_an_undeclared_table",
+      "why": "A threshold table that does not exist is a check that cannot run.",
+      "stage": "references",
+      "contains": "unknown table",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/check/kind",
+          "value": "unit_legal"
+        },
+        {
+          "op": "set",
+          "path": "/declarations/0/check/params",
+          "value": { "unit_table": "no_such_table" }
+        }
+      ]
+    },
+    {
+      "name": "table_reference_must_be_of_the_right_kind",
+      "why": "A unit check pointed at a phrase set would silently never fire.",
+      "stage": "references",
+      "contains": "kind",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/check/kind",
+          "value": "unit_legal"
+        },
+        {
+          "op": "set",
+          "path": "/declarations/0/check/params",
+          "value": { "unit_table": "tax_phrases" }
+        },
+        {
+          "op": "set",
+          "path": "/tables",
+          "value": [
+            {
+              "id": "tax_phrases",
+              "kind": "phrase_set",
+              "title": { "en": "Accepted tax-inclusivity wording" },
+              "provenance": {
+                "source": "Not a statutory source — schema fixture only.",
+                "status": "PENDING_LEGAL_REVIEW",
+                "reviewed_by": null,
+                "reviewed_on": null
+              },
+              "phrases": [
+                { "text": "inclusive of all taxes", "language": "en" }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "band_table_must_be_ascending_with_one_open_top_band",
+      "why": "Out-of-order bands make the threshold that applies depend on array order rather than on the panel area.",
+      "stage": "references",
+      "contains": "ascending",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/tables",
+          "value": [
+            {
+              "id": "height_bands",
+              "kind": "band_lookup",
+              "title": { "en": "Minimum numeral height by panel area" },
+              "provenance": {
+                "source": "Not a statutory source — schema fixture only.",
+                "status": "PENDING_LEGAL_REVIEW",
+                "reviewed_by": null,
+                "reviewed_on": null
+              },
+              "unit": "mm",
+              "basis": "area_of_principal_display_panel_cm2",
+              "bands": [
+                { "max": 300, "values": { "normal": 2.0 } },
+                { "max": 100, "values": { "normal": 1.0 } },
+                { "max": null, "values": { "normal": 6.0 } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "band_table_must_have_an_open_top_band",
+      "why": "Without one, a panel larger than the last band has no applicable threshold and the check silently abstains.",
+      "stage": "references",
+      "contains": "open-ended",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/tables",
+          "value": [
+            {
+              "id": "height_bands",
+              "kind": "band_lookup",
+              "title": { "en": "Minimum numeral height by panel area" },
+              "provenance": {
+                "source": "Not a statutory source — schema fixture only.",
+                "status": "PENDING_LEGAL_REVIEW",
+                "reviewed_by": null,
+                "reviewed_on": null
+              },
+              "unit": "mm",
+              "basis": "area_of_principal_display_panel_cm2",
+              "bands": [
+                { "max": 100, "values": { "normal": 1.0 } },
+                { "max": 300, "values": { "normal": 2.0 } }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "gate_may_not_suppress_an_undeclared_rule",
+      "why": "An exemption that names a rule id nothing defines suppresses nothing, while reading as if it does.",
+      "stage": "references",
+      "contains": "unknown declaration",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/applicability_gates/-",
+          "value": {
+            "id": "small_quantity_exemption",
+            "order": 0,
+            "title": { "en": "Small-quantity exemption" },
+            "provenance": {
+              "source": "Not a statutory source — schema fixture only.",
+              "status": "PENDING_LEGAL_REVIEW",
+              "reviewed_by": null,
+              "reviewed_on": null
+            },
+            "test": {
+              "var": "package.net_quantity_g",
+              "op": "lte",
+              "value": 10
+            },
+            "when_true": {
+              "kind": "suppress_declarations",
+              "cites": { "statute": "EXAMPLE", "rule": "0(0)" },
+              "declarations": ["no_such_rule"]
+            },
+            "when_false": { "kind": "in_scope" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "gate_may_not_activate_a_tag_no_rule_carries",
+      "why": "restrict_to_tags on an unused tag silently disables every rule at once.",
+      "stage": "references",
+      "contains": "unknown tag",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/applicability_gates/-",
+          "value": {
+            "id": "institutional_pack",
+            "order": 0,
+            "title": { "en": "Marked for institutional use" },
+            "provenance": {
+              "source": "Not a statutory source — schema fixture only.",
+              "status": "PENDING_LEGAL_REVIEW",
+              "reviewed_by": null,
+              "reviewed_on": null
+            },
+            "test": { "var": "package.marking", "op": "present" },
+            "when_true": {
+              "kind": "restrict_to_tags",
+              "tags": ["institutional"]
+            },
+            "when_false": { "kind": "in_scope" }
+          }
+        }
+      ]
+    },
+    {
+      "name": "predicate_may_not_reference_an_undeclared_lexicon",
+      "why": "A lexicon test against a lexicon the pack never declares can never match.",
+      "stage": "references",
+      "contains": "unknown lexicon",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/applies_when",
+          "value": {
+            "var": "package.marking",
+            "op": "matches_lexicon",
+            "value": "no_such_lexicon"
+          }
+        }
+      ]
+    },
+    {
+      "name": "regex_params_must_compile",
+      "why": "A pattern that throws at load turns a rule into a crash on a field officer's phone.",
+      "stage": "references",
+      "contains": "regular expression",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/declarations/0/check/kind",
+          "value": "pattern_match"
+        },
+        {
+          "op": "set",
+          "path": "/declarations/0/check/params",
+          "value": { "pattern": "m.r.p(" }
+        }
+      ]
+    },
+    {
+      "name": "gate_order_must_be_unique",
+      "why": "Two gates claiming the same position make evaluation order depend on file order (P5, P1).",
+      "stage": "references",
+      "contains": "order",
+      "mutations": [
+        {
+          "op": "set",
+          "path": "/applicability_gates",
+          "value": [
+            {
+              "id": "gate_one",
+              "order": 0,
+              "title": { "en": "First gate" },
+              "provenance": {
+                "source": "Not a statutory source — schema fixture only.",
+                "status": "PENDING_LEGAL_REVIEW",
+                "reviewed_by": null,
+                "reviewed_on": null
+              },
+              "test": { "var": "package.is_pre_packaged", "op": "present" },
+              "when_true": { "kind": "in_scope" },
+              "when_false": { "kind": "in_scope" }
+            },
+            {
+              "id": "gate_two",
+              "order": 0,
+              "title": { "en": "Second gate" },
+              "provenance": {
+                "source": "Not a statutory source — schema fixture only.",
+                "status": "PENDING_LEGAL_REVIEW",
+                "reviewed_by": null,
+                "reviewed_on": null
+              },
+              "test": { "var": "package.is_pre_packaged", "op": "present" },
+              "when_true": { "kind": "in_scope" },
+              "when_false": { "kind": "in_scope" }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
