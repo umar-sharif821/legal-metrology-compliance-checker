@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_EFFORT_LEVEL": "high"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)",
+      "Bash(git add:*)",
+      "Bash(git show:*)",
+      "Bash(adb devices:*)",
+      "Bash(npm test:*)",
+      "Bash(npm run:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pytest:*)",
+      "Bash(python -m pytest:*)",
+      "Bash(python -m eval.run:*)",
+      "Bash(grep:*)",
+      "Bash(sed -n:*)",
+      "Bash(ls:*)",
+      "Bash(cat:*)"
+    ]
+  }
+}
