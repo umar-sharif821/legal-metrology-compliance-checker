@@ -1,0 +1,44 @@
+# Tooling configuration for the Python side of the monorepo (backend/, eval/,
+# conformance/run_py.py). Runtime dependencies for the FastAPI service land in
+# backend/ at T-1.10; this file is lint/test configuration only.
+[tool.ruff]
+line-length = 100
+target-version = "py310"
+extend-exclude = ["docs/_build", "eval/gold", ".venv", "venv"]
+
+[tool.ruff.lint]
+select = [
+  "E",   # pycodestyle
+  "F",   # pyflakes
+  "I",   # isort
+  "N",   # pep8-naming
+  "UP",  # pyupgrade
+  "B",   # bugbear
+  "SIM", # simplify
+  "RUF",
+]
+ignore = [
+  "B008", # FastAPI Depends() in defaults is idiomatic
+]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/tests/**" = ["E501"]
+
+[tool.ruff.format]
+quote-style = "double"
+
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["backend/tests", "conformance", "eval"]
+python_files = ["test_*.py", "*_test.py"]
+addopts = "-ra --strict-markers --strict-config"
+markers = [
+  "conformance: fixtures both evaluators must agree on (CI-gated)",
+  "device: requires the physical Android device; never run in CI",
+]
+
+[tool.pyright]
+include = ["backend", "eval", "conformance"]
+exclude = ["**/node_modules", "**/.venv", "docs/_build"]
+typeCheckingMode = "standard"
+pythonVersion = "3.10"

@@ -22,3 +22,29 @@ Thumbs.db
 
 # Logs
 *.log
+
+# TypeScript build info
+*.tsbuildinfo
+
+# Expo / React Native
+.expo/
+mobile/android/
+mobile/ios/
+*.keystore
+*.apk
+*.aab
+
+# Test / coverage / tooling caches
+coverage/
+.pytest_cache/
+.ruff_cache/
+.vitest/
+playwright-report/
+test-results/
+
+# Eval artefacts — gold images are tracked, generated reports are not
+eval/reports/
+eval/out/
+
+# Typecheck output for test projects (never shipped)
+.tscache/

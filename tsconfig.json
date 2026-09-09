@@ -1,0 +1,7 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/rule-engine-ts" },
+    { "path": "./packages/rule-engine-ts/test" }
+  ]
+}

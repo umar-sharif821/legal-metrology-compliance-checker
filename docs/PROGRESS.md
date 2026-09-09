@@ -3,21 +3,29 @@
 > Single source of truth for project state. Updated by `/handoff`, read by `/pickup`.
 > Keep it terse. This file is read in full every session — every line costs tokens.
 
-**Last updated:** 2026-09-09 · **Sessions completed:** 0 · **Current sprint:** 1
+**Last updated:** 2026-09-10 · **Sessions completed:** 1 · **Current sprint:** 1
 
 ---
 
 ## Now
 
-**Next task:** `T-1.1` — Repository scaffold
+**Next task:** `T-1.2` — `rulepack/schema/rulepack.schema.json` (plan §4.5, §5.2)
 **Status:** not started
 **Blocked on:** nothing
 
+Scaffold is in and every gate that can run, runs green: `npm run format:check`,
+`npm run lint`, `npm run typecheck`, `npm test`, `ruff check .`, `ruff format --check .`,
+`pytest`, `npm audit`. Run them before and after any change.
+
+Setup on a fresh clone: `npm install` and `python -m pip install -r requirements-dev.txt`.
+
 **Needed from user (non-blocking, ask when convenient):**
 - Android phone model + Android version — decides whether the device is a fair
-  stand-in for the mid-range performance target in plan §16.
+  stand-in for the mid-range performance target in plan §16. **Not yet asked.**
 - A Legal Metrology officer / law student contact for the rule-pack review (plan §4,
-  needed before Sprint 6, ideally started in Sprint 1).
+  needed before Sprint 6, ideally started in Sprint 1). **Not yet asked.**
+- Docker is not installed on this machine (`docker --version` fails). `T-1.11` needs
+  Docker Desktop; install it before that task, not urgently now.
 
 ---
 
@@ -34,6 +42,12 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-09` GEPIR demoted to one of four identity signals; three work offline.
 - `2026-09-09` Solo repo, single `main` branch, no remote — commit directly to `main`.
 - `2026-09-09` Subagents pinned to `model: sonnet`. Effort level is session-wide (`.claude/settings.json`), not per-agent.
+- `2026-09-10` npm workspaces = `packages/*` only. `mobile/` and `dashboard/` join when `T-1.12` / `T-4.4` scaffold them; `conformance/` joins at `T-1.9`. Do not add empty workspaces — `npm install` fails on a workspace with no `package.json`.
+- `2026-09-10` TS toolchain: TypeScript 5.9 project references, ESLint 10 flat config with type-aware `recommendedTypeChecked`, Prettier 3, Vitest 5. Python: ruff 0.14 + pytest 8, configured in the root `pyproject.toml`.
+- `2026-09-10` Each TS package has a build project (`src`, composite, emits `dist/`) and a sibling test project (`test/tsconfig.json`, emits to gitignored `.tscache/`). Both are referenced from the root `tsconfig.json`, so `tsc -b` typechecks tests too. New packages must follow this shape or ESLint cannot type-check their tests.
+- `2026-09-10` `.gitattributes` forces `eol=lf` repo-wide. Windows host, Linux CI — without it Prettier's `endOfLine: lf` check fails on a fresh Windows clone.
+- `2026-09-10` Prettier does not touch `docs/`, `.claude/` or any `*.md`. The plan uses custom `~~~t|` table and `:::` admonition syntax that Prettier mangles.
+- `2026-09-10` CI gates that cannot run yet exist as jobs emitting a GitHub `::notice::` NOT IMPLEMENTED and exiting 0 — never omitted, never silently green (P9). Each guards on the file it needs and turns into a hard `::error::` failure the moment that file exists without its gate wired. So `T-1.2` creating the schema **will red the `rulepack-schema` job** until the validator step is written in the same task. Same for `T-1.3` → `unreviewed-thresholds`, `T-1.9` → `conformance`, `T-2.9` → `accuracy-regression`.
 
 ---
 
@@ -50,7 +64,10 @@ Append-only. One line each. Never re-litigate a line that is already here.
 
 Noticed but deliberately out of scope for now. Do not action without asking.
 
-*(empty)*
+- `docs/ARCHITECTURE.md` and `docs/DEMO_SCRIPT.md` are listed in plan §18 but no task
+  on the board creates them. Assign them before Sprint 6 (`T-6.5` needs the demo script).
+- No pre-commit hook. The eight checks are run by hand; nothing stops a bad commit
+  locally, and CI has never executed because the repo has no remote.
 
 ---
 
@@ -61,7 +78,7 @@ Status: `[ ]` todo · `[>]` in progress · `[x]` done · `[!]` blocked · `[~]` 
 ### Sprint 1 — Legal core and skeleton
 *Goal: both evaluators produce identical clause-cited verdicts from a JSON field set.*
 
-- [ ] `T-1.1` Repo scaffold — monorepo dirs, tooling, lint/format, CI workflow stub · *plan §18*
+- [x] `T-1.1` Repo scaffold — monorepo dirs, tooling, lint/format, CI workflow stub · *plan §18*
 - [ ] `T-1.2` `rulepack/schema/rulepack.schema.json` — rule-pack JSON Schema · *plan §4.5, §5.2*
 - [ ] `T-1.3` `rulepack/lmpc-2011.json` — Rule 6 universal declarations · *plan §4.2*
 - [ ] `T-1.4` Rule 7 height table, Rule 8(2) parity, Rule 9 spacing entries · *plan §4.3*

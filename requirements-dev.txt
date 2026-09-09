@@ -1,0 +1,5 @@
+# Development tooling only. Backend runtime dependencies arrive with the FastAPI
+# skeleton (T-1.10) in backend/requirements.txt.
+ruff==0.14.0
+pytest==8.4.2
+jsonschema==4.25.1

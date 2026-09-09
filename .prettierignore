@@ -1,0 +1,15 @@
+node_modules/
+dist/
+.tscache/
+build/
+.expo/
+docs/_build/
+eval/gold/
+package-lock.json
+*.pdf
+
+# Authored prose and the authoritative spec — the plan uses custom table (~~~t|)
+# and admonition (:::) syntax that Prettier would mangle. Never reformat these.
+docs/
+.claude/
+*.md

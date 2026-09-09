@@ -1,0 +1,11 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": ".",
+    "outDir": "../../../.tscache/rule-engine-ts-test",
+    "tsBuildInfoFile": "../../../.tscache/rule-engine-ts-test/.tsbuildinfo",
+    "types": ["node"]
+  },
+  "include": ["**/*.ts"],
+  "references": [{ "path": ".." }]
+}

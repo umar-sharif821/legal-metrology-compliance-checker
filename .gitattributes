@@ -1,0 +1,16 @@
+# The repo is authored on Windows and CI runs on Linux. Store and check out text as
+# LF everywhere so Prettier's endOfLine:lf check and ruff behave identically on both.
+* text=auto eol=lf
+
+# Binary — never convert, never diff as text.
+*.pdf binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.webp binary
+*.keystore binary
+*.apk binary
+*.aab binary
+
+# Generated — collapse in diffs and reviews.
+package-lock.json linguist-generated=true -diff
