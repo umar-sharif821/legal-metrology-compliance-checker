@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "LM Scan",
+    "slug": "lm-scan-demo",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "android": {
+      "package": "com.sih26034.lmscan",
+      "adaptiveIcon": {
+        "backgroundColor": "#0B1220",
+        "foregroundImage": "./assets/android-icon-foreground.png",
+        "backgroundImage": "./assets/android-icon-background.png",
+        "monochromeImage": "./assets/android-icon-monochrome.png"
+      },
+      "predictiveBackGestureEnabled": false
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "LM Scan reads the printed declarations on a package label. The camera never leaves the device and the app makes no network requests."
+        }
+      ],
+      "./plugins/withLegacyGradleExt"
+    ]
+  }
+}

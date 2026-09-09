@@ -30,6 +30,10 @@ quote-style = "double"
 [tool.pytest.ini_options]
 minversion = "8.0"
 testpaths = ["backend/tests", "conformance", "eval"]
+# Put the repo root on sys.path so `import backend` resolves without an editable
+# install. Without this, `pytest` from a fresh clone fails to import the package it is
+# testing — a gate that fails for a reason unrelated to the code under test.
+pythonpath = ["."]
 python_files = ["test_*.py", "*_test.py"]
 addopts = "-ra --strict-markers --strict-config"
 markers = [

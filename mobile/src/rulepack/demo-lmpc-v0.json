@@ -1,0 +1,437 @@
+{
+  "metadata": {
+    "pack_id": "demo-lmpc-v0",
+    "pack_version": "0.1.0",
+    "schema": "demo-v0",
+    "demo_only": true,
+    "not_the_legal_artefact": "This pack is DEMO SCAFFOLDING. The real pack is rulepack/lmpc-2011.json, written by task T-1.3 against rulepack/schema/rulepack.schema.json. Do not cite this file, do not promote it, do not copy its clause letters anywhere. See README.md in this directory.",
+    "statute_code": "LMPC-2011",
+    "statute_long": "Legal Metrology (Packaged Commodities) Rules, 2011",
+    "jurisdiction": "IN",
+    "scope_note": "Rule 6(1) universal declarations only. Applicability gates (Rule 3 exemptions, small-quantity carve-outs) are NOT modelled — this pack assumes the Rules apply. That assumption is stated on screen.",
+    "provenance": {
+      "status": "PENDING_LEGAL_REVIEW",
+      "max_severity": "advisory",
+      "reviewer": null,
+      "reviewed_on": null,
+      "note": "No Legal Metrology officer has reviewed any entry in this file. Sub-clause letters are unverified and contested — see clause.alternate_readings on each declaration. Every finding is therefore capped at 'advisory'. Nothing here may be presented as a determination of law."
+    },
+    "evidence_thresholds": {
+      "min_ocr_lines": 6,
+      "min_fields_found": 2,
+      "note": "Method parameters, not statutory values. Below either threshold the app reports INSUFFICIENT_EVIDENCE instead of a verdict, rather than letting a bad capture read as a clean label (P3, P9). They live here so field tuning is a data change."
+    }
+  },
+
+  "tables": {
+    "units_mass": ["g", "gm", "gms", "gram", "grams", "kg", "kgs", "kilogram", "kilograms", "mg"],
+    "units_volume": [
+      "ml",
+      "mls",
+      "millilitre",
+      "milliliter",
+      "l",
+      "ltr",
+      "ltrs",
+      "litre",
+      "liter",
+      "litres",
+      "liters"
+    ],
+    "units_count": [
+      "n",
+      "no",
+      "nos",
+      "pc",
+      "pcs",
+      "piece",
+      "pieces",
+      "unit",
+      "units",
+      "sachet",
+      "sachets",
+      "tablet",
+      "tablets"
+    ],
+    "currency_markers": ["₹", "rs", "rs.", "inr", "rupees"],
+    "month_names": [
+      "jan",
+      "feb",
+      "mar",
+      "apr",
+      "may",
+      "jun",
+      "jul",
+      "aug",
+      "sep",
+      "sept",
+      "oct",
+      "nov",
+      "dec"
+    ]
+  },
+
+  "shapes": {
+    "quantity_loose": {
+      "description": "A number with whatever word follows it. Used ONLY after an anchor has already identified the line as the quantity declaration, so that '250' with no unit is still recovered — and can then fail the standard-unit check rather than being reported as simply absent.",
+      "pattern": "\\b([0-9]+(?:[.,][0-9]+)?\\s*[a-z]{0,12})\\b",
+      "flags": "i"
+    },
+    "amount_loose": {
+      "description": "A bare amount. Used ONLY after a price anchor, so 'MRP 45.00' printed without a currency symbol is still recovered.",
+      "pattern": "\\b([0-9]+(?:[.,][0-9]{1,2})?)\\b",
+      "flags": "i"
+    },
+    "quantity_with_unit": {
+      "description": "A number immediately followed by a unit of mass, volume or count.",
+      "pattern": "\\b([0-9]+(?:[.,][0-9]+)?)\\s*(g|gm|gms|gram|grams|kg|kgs|kilogram|kilograms|mg|ml|mls|millilitre|milliliter|l|ltr|ltrs|litre|liter|litres|liters|n|no|nos|pc|pcs|piece|pieces|unit|units|sachet|sachets|tablet|tablets)\\b",
+      "flags": "i"
+    },
+    "price_amount": {
+      "description": "A currency marker followed by an amount, or an amount followed by a currency word.",
+      "pattern": "(?:\\u20b9|\\brs\\b\\.?|\\binr\\b)\\s*[.:\\-]?\\s*([0-9]+(?:[.,][0-9]{1,2})?)|\\b([0-9]+(?:[.,][0-9]{1,2})?)\\s*(?:\\u20b9|\\brs\\b|rupees)",
+      "flags": "i"
+    },
+    "month_year": {
+      "description": "A month and a year: a named month, or numeric MM/YYYY and MM-YY. A dot separator requires a four-digit year, so a price such as '5.00' cannot be read as a date.",
+      "pattern": "\\b(jan|feb|mar|apr|may|jun|jul|aug|sep|sept|oct|nov|dec)[a-z]*\\.?\\s*[-/,.]?\\s*((?:19|20)[0-9]{2}|[0-9]{2})\\b|\\b(0?[1-9]|1[0-2])\\s*[-/]\\s*((?:19|20)[0-9]{2}|[0-9]{2})\\b|\\b(0?[1-9]|1[0-2])\\s*\\.\\s*((?:19|20)[0-9]{2})\\b",
+      "flags": "i"
+    },
+    "contact_point": {
+      "description": "An email address, or an Indian phone number of 10 or 11 digits with optional grouping, or a 1800 toll-free number.",
+      "pattern": "[a-z0-9._%+-]+@[a-z0-9.-]+\\.[a-z]{2,}|\\b1800[\\s-]?[0-9]{2,4}[\\s-]?[0-9]{3,4}\\b|\\b(?:\\+?91[\\s-]?)?[6-9][0-9]{4}[\\s-]?[0-9]{5}\\b",
+      "flags": "i"
+    },
+    "address_like": {
+      "description": "A 6-digit Indian PIN code, or an address keyword. Weak by design — this field is the least reliably extracted of the six.",
+      "pattern": "\\b[1-9][0-9]{5}\\b|\\b(?:plot|survey|khasra|gala|unit|shed|road|rd|street|st|lane|marg|nagar|colony|sector|phase|industrial|estate|dist|district|taluka|tehsil|pin|pincode|india)\\b",
+      "flags": "i"
+    }
+  },
+
+  "lexicons": {
+    "note": "Anchor terms are matched case-insensitively against normalised OCR lines. Stage B associates the value on the same line after the anchor, else the line below it.",
+    "manufacturer_address": [
+      "manufactured by",
+      "mfd by",
+      "mfd. by",
+      "mfg by",
+      "manufacturer",
+      "packed by",
+      "marketed by",
+      "imported by",
+      "importer",
+      "packer",
+      "name and address"
+    ],
+    "commodity_name": [
+      "product",
+      "product name",
+      "commodity",
+      "common name",
+      "generic name",
+      "name of commodity"
+    ],
+    "net_quantity": [
+      "net qty",
+      "net quantity",
+      "net wt",
+      "net weight",
+      "net vol",
+      "net volume",
+      "net content",
+      "net contents",
+      "quantity",
+      "e-code",
+      "nt wt"
+    ],
+    "retail_sale_price": [
+      "mrp",
+      "m.r.p",
+      "m r p",
+      "maximum retail price",
+      "max retail price",
+      "retail sale price",
+      "price incl",
+      "inclusive of all taxes"
+    ],
+    "date_of_packing": [
+      "date of manufacture",
+      "date of packing",
+      "date of packaging",
+      "mfg date",
+      "mfg. date",
+      "manufactured on",
+      "packed on",
+      "pkd on",
+      "date of import",
+      "mfd on"
+    ],
+    "consumer_care": [
+      "consumer care",
+      "customer care",
+      "consumer complaints",
+      "customer service",
+      "for complaints",
+      "helpline",
+      "toll free",
+      "toll-free",
+      "email",
+      "e-mail",
+      "contact us"
+    ]
+  },
+
+  "fields": [
+    {
+      "id": "manufacturer_address",
+      "label": "Manufacturer / packer / importer name and address",
+      "short_label": "Manufacturer",
+      "anchors_ref": "manufacturer_address",
+      "value_shape": "address_like",
+      "anchor_remainder_is_value": true,
+      "anchored_value_shape": null,
+      "unanchored_recovery": false,
+      "value_presentation": "whole_line",
+      "value_may_span_lines": 3,
+      "extraction_note": "Free-text field. Recovered by anchor, then by the lines that follow it. Genuinely hard; expect misses."
+    },
+    {
+      "id": "commodity_name",
+      "label": "Common or generic name of the commodity",
+      "short_label": "Commodity name",
+      "anchors_ref": "commodity_name",
+      "value_shape": null,
+      "anchor_remainder_is_value": true,
+      "anchored_value_shape": null,
+      "unanchored_recovery": false,
+      "value_presentation": "whole_line",
+      "value_may_span_lines": 1,
+      "extraction_note": "Often the largest text on the panel with no anchor at all. Anchored recovery only; unanchored recovery is out of demo scope."
+    },
+    {
+      "id": "net_quantity",
+      "label": "Net quantity",
+      "short_label": "Net quantity",
+      "anchors_ref": "net_quantity",
+      "value_shape": "quantity_with_unit",
+      "anchor_remainder_is_value": false,
+      "anchored_value_shape": "quantity_loose",
+      "unanchored_recovery": true,
+      "value_presentation": "captured",
+      "value_may_span_lines": 1,
+      "extraction_note": "Shape is distinctive enough to recover without an anchor."
+    },
+    {
+      "id": "retail_sale_price",
+      "label": "Retail sale price (MRP), inclusive of all taxes",
+      "short_label": "MRP",
+      "anchors_ref": "retail_sale_price",
+      "value_shape": "price_amount",
+      "anchor_remainder_is_value": false,
+      "anchored_value_shape": "amount_loose",
+      "unanchored_recovery": true,
+      "value_presentation": "captured",
+      "value_may_span_lines": 1,
+      "extraction_note": "Shape is distinctive enough to recover without an anchor."
+    },
+    {
+      "id": "date_of_packing",
+      "label": "Month and year of manufacture, packing or import",
+      "short_label": "Date of packing",
+      "anchors_ref": "date_of_packing",
+      "value_shape": "month_year",
+      "anchor_remainder_is_value": false,
+      "anchored_value_shape": null,
+      "unanchored_recovery": true,
+      "value_presentation": "captured",
+      "value_may_span_lines": 1,
+      "extraction_note": "Best-before / use-by dates are deliberately NOT accepted here — that is an FSSAI declaration, not this one. See the open question in docs/PROGRESS.md."
+    },
+    {
+      "id": "consumer_care",
+      "label": "Consumer care contact",
+      "short_label": "Consumer care",
+      "anchors_ref": "consumer_care",
+      "value_shape": "contact_point",
+      "anchor_remainder_is_value": false,
+      "anchored_value_shape": null,
+      "unanchored_recovery": true,
+      "value_presentation": "captured",
+      "value_may_span_lines": 2,
+      "extraction_note": "Shape is distinctive enough to recover without an anchor."
+    }
+  ],
+
+  "declarations": [
+    {
+      "id": "LMPC-6-1-MFR-PRESENT",
+      "field": "manufacturer_address",
+      "check": { "kind": "field_present" },
+      "clause": {
+        "rule": "6",
+        "sub_clause": "(1)(a)",
+        "verification": "UNVERIFIED",
+        "alternate_readings": [],
+        "note": "The (a) position for manufacturer/packer/importer particulars is the least contested of the six, but is still unverified."
+      },
+      "title": "Manufacturer / packer / importer particulars not found",
+      "requirement": "Every package must carry the name and complete address of the manufacturer, or of the packer or importer where the manufacturer is not the packer.",
+      "remedy": "Check the rear or side panel for a 'Manufactured by' / 'Marketed by' block and rescan that panel.",
+      "severity_if_failed": "advisory",
+      "evidence": "field_region"
+    },
+    {
+      "id": "LMPC-6-1-NAME-PRESENT",
+      "field": "commodity_name",
+      "check": { "kind": "field_present" },
+      "clause": {
+        "rule": "6",
+        "sub_clause": "(1)(b)",
+        "verification": "UNVERIFIED",
+        "alternate_readings": [],
+        "note": "Sub-clause letter unverified."
+      },
+      "title": "Common or generic name of the commodity not found",
+      "requirement": "Every package must state the common or generic name of the commodity contained in it.",
+      "remedy": "The brand name is not the commodity name. Look for a descriptive term such as 'biscuits' or 'refined sunflower oil'.",
+      "severity_if_failed": "advisory",
+      "evidence": "field_region"
+    },
+    {
+      "id": "LMPC-6-1-NETQTY-PRESENT",
+      "field": "net_quantity",
+      "check": { "kind": "field_present" },
+      "clause": {
+        "rule": "6",
+        "sub_clause": "(1)(c)",
+        "verification": "UNVERIFIED",
+        "alternate_readings": [],
+        "note": "Sub-clause letter unverified."
+      },
+      "title": "Net quantity not found",
+      "requirement": "Every package must declare the net quantity, in terms of the standard unit of weight, measure or number.",
+      "remedy": "Rescan the panel that carries the quantity declaration.",
+      "severity_if_failed": "advisory",
+      "evidence": "field_region"
+    },
+    {
+      "id": "LMPC-6-1-NETQTY-UNIT",
+      "field": "net_quantity",
+      "check": { "kind": "value_wellformed", "shape": "quantity_with_unit" },
+      "clause": {
+        "rule": "6",
+        "sub_clause": "(1)(c)",
+        "verification": "UNVERIFIED",
+        "alternate_readings": [],
+        "note": "The requirement that the quantity be expressed in a standard unit is read into the same sub-clause. Unverified."
+      },
+      "title": "Net quantity carries no standard unit",
+      "requirement": "The net quantity must be expressed in the standard unit of weight, measure or number — not as a bare figure.",
+      "remedy": "Confirm visually whether a unit is printed and simply missed by the scan.",
+      "severity_if_failed": "advisory",
+      "evidence": "field_region"
+    },
+    {
+      "id": "LMPC-6-1-MRP-PRESENT",
+      "field": "retail_sale_price",
+      "check": { "kind": "field_present" },
+      "clause": {
+        "rule": "6",
+        "sub_clause": "(1)(e)",
+        "verification": "UNVERIFIED",
+        "alternate_readings": [
+          {
+            "sub_clause": "(1)(f)",
+            "source": "SIH26034 implementation plan v1",
+            "note": "v1 of this project's own spec placed the retail sale price at (1)(f). Not resolved."
+          }
+        ],
+        "note": "CONTESTED. The common reading places retail sale price at 6(1)(e); this project's v1 spec placed it at 6(1)(f). Both are shown until a Legal Metrology officer confirms one."
+      },
+      "title": "Retail sale price (MRP) not found",
+      "requirement": "Every package must declare the retail sale price as 'Maximum retail price Rs ... inclusive of all taxes'.",
+      "remedy": "Rescan the panel carrying the price. A price sticker applied over the printed panel is itself worth recording.",
+      "severity_if_failed": "advisory",
+      "evidence": "field_region"
+    },
+    {
+      "id": "LMPC-6-1-MRP-INCLUSIVE",
+      "field": "retail_sale_price",
+      "check": {
+        "kind": "context_phrase_present",
+        "any_of": [
+          "inclusive of all taxes",
+          "incl. of all taxes",
+          "incl of all taxes",
+          "inclusive of taxes",
+          "inc. of all taxes"
+        ]
+      },
+      "clause": {
+        "rule": "6",
+        "sub_clause": "(1)(e)",
+        "verification": "UNVERIFIED",
+        "alternate_readings": [
+          {
+            "sub_clause": "(1)(f)",
+            "source": "SIH26034 implementation plan v1",
+            "note": "Follows whichever letter the price declaration takes."
+          }
+        ],
+        "note": "CONTESTED, as above. The prescribed form of the price declaration includes the words 'inclusive of all taxes'."
+      },
+      "title": "Price declaration does not say 'inclusive of all taxes'",
+      "requirement": "The retail sale price must be declared in the prescribed form, which includes the words 'inclusive of all taxes'.",
+      "remedy": "Confirm visually. This phrase is frequently printed in very small type and is a common OCR miss.",
+      "severity_if_failed": "advisory",
+      "evidence": "field_region"
+    },
+    {
+      "id": "LMPC-6-1-DATE-PRESENT",
+      "field": "date_of_packing",
+      "check": { "kind": "field_present" },
+      "clause": {
+        "rule": "6",
+        "sub_clause": "(1)(d)",
+        "verification": "UNVERIFIED",
+        "alternate_readings": [
+          {
+            "sub_clause": "(1)(g)",
+            "source": "SIH26034 implementation plan v1",
+            "note": "v1 of this project's own spec placed the date at (1)(g). Not resolved."
+          }
+        ],
+        "note": "CONTESTED. The common reading places the date at 6(1)(d); this project's v1 spec placed it at 6(1)(g)."
+      },
+      "title": "Month and year of manufacture / packing not found",
+      "requirement": "Every package must declare the month and year in which the commodity was manufactured, packed or imported.",
+      "remedy": "A 'best before' date is not this declaration. Look specifically for a manufacture or packing date.",
+      "severity_if_failed": "advisory",
+      "evidence": "field_region"
+    },
+    {
+      "id": "LMPC-6-1-CARE-PRESENT",
+      "field": "consumer_care",
+      "check": { "kind": "field_present" },
+      "clause": {
+        "rule": "6",
+        "sub_clause": "(1)(f)",
+        "verification": "UNVERIFIED",
+        "alternate_readings": [
+          {
+            "sub_clause": "(1)(g)",
+            "source": "Alternative ordering",
+            "note": "Position depends on how the price and date sub-clauses resolve."
+          }
+        ],
+        "note": "CONTESTED. This letter shifts depending on how the price and date sub-clauses resolve."
+      },
+      "title": "Consumer care contact not found",
+      "requirement": "Every package must carry consumer care details — the name, address, telephone number or email of the person to be contacted about consumer complaints.",
+      "remedy": "Look for a helpline, toll-free number or email address, usually near the manufacturer block.",
+      "severity_if_failed": "advisory",
+      "evidence": "field_region"
+    }
+  ]
+}

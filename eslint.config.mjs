@@ -17,6 +17,11 @@ export default tseslint.config(
       '**/ios/**',
       'docs/_build/**',
       'eval/gold/**',
+      // Demo-only (docs/DEMO_PLAN.md). mobile/ is not an npm workspace and its tsconfig
+      // is outside the root project graph, so type-aware linting cannot resolve it.
+      // It is typechecked by `npm run typecheck` inside mobile/ instead. Removed with
+      // the demo, or folded in properly at T-1.12.
+      'mobile/**',
     ],
   },
   js.configs.recommended,
