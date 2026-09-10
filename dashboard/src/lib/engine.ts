@@ -169,6 +169,7 @@ export async function analyseInBrowser(
     findings,
     admission: toAdmission(verdict.admission),
     insufficientReason: verdict.insufficientReason,
+    ocrLines: frame.lines.map((l) => l.text),
     packId: verdict.packId,
     packVersion: verdict.packVersion,
     timings: {

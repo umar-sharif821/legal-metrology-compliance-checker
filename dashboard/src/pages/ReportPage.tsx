@@ -307,6 +307,27 @@ export function ReportPage() {
 
           <FrameQuality scan={scan} />
 
+          {scan.ocrLines.length > 0 && (
+            <Card>
+              <CardHead
+                title={`Text read from the image (${scan.ocrLines.length} lines)`}
+                hint="The input every finding above rests on — shown so a wrong value can be told from a wrong rule"
+              />
+              <ol className="max-h-72 overflow-y-auto px-5 py-3">
+                {scan.ocrLines.map((line, i) => (
+                  <li key={i} className="flex gap-3 py-0.5 font-mono text-[11.5px] leading-relaxed">
+                    <span className="tnum w-5 shrink-0 text-right text-ink-400">{i + 1}</span>
+                    <span className="min-w-0 break-words text-ink-700">{line}</span>
+                  </li>
+                ))}
+              </ol>
+              <p className="border-t border-line-200 px-5 py-3 text-[11px] leading-relaxed text-ink-400">
+                Recognition errors here become extraction errors above. If a declaration was missed,
+                check whether it was read at all before blaming the rule.
+              </p>
+            </Card>
+          )}
+
           <Card>
             <CardHead title="Stage timings" hint="Indicative for this build — not a benchmark" />
             <ul className="flex flex-col divide-y divide-line-200">

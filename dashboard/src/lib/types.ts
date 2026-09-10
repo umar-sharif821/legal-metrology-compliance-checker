@@ -93,6 +93,15 @@ export interface Scan {
   readonly findings: readonly Finding[];
   readonly admission: Admission;
   readonly insufficientReason: string | null;
+  /**
+   * Every line of text the engine actually read, in order.
+   *
+   * This is the input the whole verdict rests on, and until it was on screen a wrong
+   * value was indistinguishable from a wrong rule. An officer disputing a finding needs
+   * to see what the machine saw, not just what it concluded (P7). Empty for sample
+   * records, which have no OCR behind them.
+   */
+  readonly ocrLines: readonly string[];
   readonly packId: string;
   readonly packVersion: string;
   readonly timings: {
