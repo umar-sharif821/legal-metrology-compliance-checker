@@ -35,21 +35,11 @@ These are the tiebreakers. Full statements in plan §3.
   The step that turns extracted facts into a flag is a pure function of
   `(fields, geometry, category, rulepack)` with no learned parameters. Every flag
   carries a statute, rule id, sub-clause, and rule-pack version.
-- **P2 — ~~Offline first~~ → Accuracy first. SUPERSEDED 2026-09-10 by user decision.**
-  The plan (§3) and `IMPLEMENTATION_PLAN_v2.pdf` still read *"the device must reach a
-  verdict alone; network is an enhancement path, never a dependency."* **That is no longer
-  what is being built.** The most accurate reachable engine decides the verdict:
-  **self-hosted PaddleOCR (server models) by default**, ML Kit for the live preview only
-  and never for a verdict. With no provider reachable the app **refuses to give a verdict**
-  rather than degrading to on-device OCR. Reason: a result an officer cannot trust sends
-  them back to manual inspection, which is the problem this tool exists to remove.
-  Cloud Vision is **parked, not chosen** — it needs a card on file and there is no budget;
-  a free escalation ladder is in `DEMO_PLAN` §2.1. The OCR host is the user's laptop for
-  dev and demo (no internet) and a cloud host in real deployment — the endpoint is
-  configuration, not code.
-  The plan is now divergent here and v2 does **not** win on this one point — the decisions
-  log does. See `docs/PROGRESS.md` (`2026-09-10`, the two `USER DECISION` entries) and
-  `docs/DEMO_PLAN.md` §2.1. `T-3.2`, `T-3.4` and `T-6.4` are flagged for re-scope.
+- **P2 — Offline first.** The device must reach a verdict alone. Network is an
+  enhancement path, never a dependency. *(Challenged 2026-09-10 when accuracy was raised
+  as the core feature, and upheld: every engine worth swapping ML Kit for needs either a
+  card or a tethered laptop, and both were ruled out. `DEMO_PLAN` §2.1 records the options
+  and why each lost — do not re-derive them.)*
 - **P3 — A false flag costs more than a missed flag.** Precision is the primary
   metric. Uncertain findings are emitted as `advisory`, never `violation`.
 - **P4 — Never emit a number the method cannot support.** No millimetre figure

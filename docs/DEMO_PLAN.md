@@ -5,13 +5,12 @@
 >
 > **Created:** 2026-09-10 · **Target device:** OnePlus Nord 4 (physical, USB)
 >
-> **Revised 2026-09-10 — scope changed by the user.** Accuracy is the product: an
-> officer who cannot trust the result inspects by hand anyway, which is the problem
-> this tool exists to remove. Server OCR is therefore **in**, and is the **default**
-> path, not an enhancement. See §2.1. **This is no longer a one-day plan** — the
-> original budget was one day for the core loop; the accuracy track (`A-0`…`A-4`)
-> adds a backend, two OCR integrations and the spatial-association work pulled
-> forward from Sprint 2. Budget it separately and honestly.
+> **Revised 2026-09-10.** Accuracy was raised as the core feature. After working through
+> the options (§2.1) the engine stays **ML Kit on-device** — no server, no laptop, no key,
+> no budget — and the accuracy work becomes `C-0` (better images, and image upload),
+> `A-0` (measure it) and `A-4` (spatial association, `T-2.3` pulled forward). **P2 is
+> restored** and the demo runs in aeroplane mode again. Still not a one-day plan: `A-4`
+> is real work pulled forward from Sprint 2.
 
 ---
 
@@ -22,23 +21,24 @@ One Android app, installed on the user's own phone, that does this and nothing e
 > Point the phone at a packaged product label. Text is recognised live on the preview.
 > Tap **Freeze** and the app names which mandatory declarations under the Legal Metrology
 > (Packaged Commodities) Rules, 2011 it found, which it did not, and cites the clause for
-> each — with the image region a human can look at to agree or disagree.
+> each — with the image region a human can look at to agree or disagree. In aeroplane mode.
 
 That is the whole pitch. Everything below serves it or is cut.
 
-**What changed on 2026-09-10.** The original pitch ended "in aeroplane mode", and beat 1
-was the offline story. That is gone: the user's decision is that the most accurate engine
-available is the default, and that with no server reachable the app **refuses to give a
-verdict** rather than falling back to a lower-accuracy on-device read. The offline claim
-is therefore withdrawn from the demo, and the opening beat becomes the accuracy
-measurement instead — a weaker differentiator against other teams, but the one the user
-has judged matters more to a real officer. See the decisions log in `docs/PROGRESS.md`.
+**Revised twice on 2026-09-10, and back where it started.** Accuracy was raised as the core
+feature, which briefly made server OCR the default and withdrew the offline claim. Working
+through it reversed that: paid APIs need a card and there is no budget, and every free
+engine good enough to be worth the swap must be self-hosted, which needs a laptop tethered
+to the phone. The user ruled that out. So the engine stays ML Kit, **P2 is restored**, and
+the accuracy work moves to where it was always cheaper anyway — better images (`C-0`),
+better extraction (`A-4`) and frame coaching (`T-2.7`). §2.1 records every option that was
+considered and why it lost, so none of it is re-derived.
 
 ### The five beats of the live demo
 
 | # | Beat | What the judge sees | Principle it proves |
 |---|---|---|---|
-| 1 | The same packet read by the phone alone, then by the server model, side by side | A measured accuracy difference, not a claim | **P8** measure what you claim |
+| 1 | Aeroplane mode is on before the app opens | No network the entire demo | **P2** offline first |
 | 2 | Live preview, text boxes tracking the label | It is reading, not guessing | — |
 | 3 | Freeze → verdict in under a second | Six declarations, found/missing | — |
 | 4 | Every finding names statute, rule, sub-clause, pack version | Not a vibe, a citation | **P1** deterministic, **P6** rules are data |
@@ -57,10 +57,9 @@ answer than a perfect scan.
 
 ### In — core features
 
-1. **Live camera + OCR through a provider interface** — ML Kit on-device drives the live
-   preview (it is the only engine fast enough to run continuously and free enough to run
-   per frame), and the **captured panel is re-read by the default server engine** before a
-   verdict is computed. §2.1 defines the order.
+1. **Live camera + on-device OCR through a provider interface** (English / Latin script,
+   ML Kit). The interface exists so a different engine can be measured later without
+   touching `extract` or `evaluate` — not because one is planned. §2.1.
 2. **Two ways in: capture or upload.** A full-quality still from the camera, or a photo
    picked from the gallery. Both feed the identical pipeline; the live preview is a
    viewfinder and never produces a verdict on its own (`C-0`).
@@ -78,11 +77,9 @@ answer than a perfect scan.
 6. **Verdict screen** — overall status, per-finding citation, evidence crop.
 7. **Visible degradation** — coverage / confidence banner; `INSUFFICIENT EVIDENCE`
    when the OCR line set is too thin to conclude anything.
-8. **A measured accuracy figure** — the same recorded packets replayed through every
-   provider, so "more accurate" is a number from `field-trial/`, not an assertion (**P8**).
-9. **Visible provenance of the reading** — the verdict screen names which engine produced
-   the text it judged, and its latency. A result from the phone's own OCR must never be
-   presentable as a server-quality one (**P9**).
+8. **A measured accuracy figure** — recorded packets replayed through the pipeline, so
+   any accuracy claim is a number from `field-trial/`, not an assertion (**P8**).
+9. **Fully offline.** The app makes zero network calls. Verified in aeroplane mode.
 
 ### Out — deliberately cut for the demo
 
@@ -90,8 +87,7 @@ Each of these has a task on the real board. None is deleted, all are deferred.
 
 | Cut | Why | Returns at |
 |---|---|---|
-| ~~Backend~~ — **now IN, see §2.1** | Reversed 2026-09-10: the default OCR path is server-side | `A-1`, `A-2` |
-| Postgres, sync, dashboard | Still nothing in the beats needs them; the OCR endpoint is stateless | `T-1.10`, Sprint 4 |
+| Backend, Postgres, sync, dashboard | Nothing in the beats needs a server. Briefly reversed on 2026-09-10 and reversed back — see §2.1 | `T-1.10`, Sprint 4 |
 | Python evaluator + conformance suite | One evaluator cannot diverge from itself | `T-1.8`, `T-1.9` |
 | Hindi / Devanagari OCR and UI | Devanagari model is weak on real labels; a visible miss costs more than the feature earns | `T-2.5`, `T-5.5` |
 | Any millimetre measurement, Rule 7 height, Rule 8(2) parity | **P4** — no number without a stated scale reference, and the demo has none | `T-1.4`, `T-3.7`, `T-5.7` |
@@ -100,104 +96,46 @@ Each of these has a task on the real board. None is deleted, all are deferred.
 | Applicability gates (exempt packs, small quantity) | **P5** matters, but the thresholds are unverified and gates are `T-1.5` | `T-1.5` |
 | E-commerce sweep | Whole separate surface | Sprint 5 |
 
-### 2.1 OCR providers, in the order the app tries them
+### 2.1 OCR: ML Kit on-device, and why nothing else
 
-Decided by the user on 2026-09-10, **revised the same day** once the cost and hosting of
-each option were worked through. **Accuracy is the primary metric and the most accurate
-reachable engine wins — but it must be free, because there is no budget.**
+Decided by the user on 2026-09-10, after two revisions as the cost and hosting of each
+option were worked through. **Final: ML Kit on the phone. No server of any kind.**
 
-| Order | Provider | Where it runs | Used for |
-|---|---|---|---|
-| **1 — default** | **PaddleOCR server models**, self-hosted | The user's laptop now; a cloud host in real deployment | The verdict |
-| **2 — live preview only** | **ML Kit** | On the phone | Preview boxes and framing feedback. **Never the verdict.** |
-| **none reachable** | — | — | **The app refuses to give a verdict** and says why |
-| *parked* | *Cloud Vision, Surya* | *see the escalation ladder below* | *only if `A-0` measures PaddleOCR as insufficient* |
+The constraint that settled it: *"we are not using anything that requires the phone to be
+connected to a laptop continuously."* That rules out every self-hosted engine, and paid
+APIs were already ruled out by having no budget. What remains is on-device, and on-device
+means ML Kit.
 
-**Why PaddleOCR and not Cloud Vision.** Cloud Vision is likely more accurate on the worst
-frames, but requires a billing account with a card on file, and there is no budget.
-PaddleOCR is Apache-2.0, free forever, needs no card, no account and no quota, returns
-real per-line bounding boxes (**P7**, and `A-4` needs them), and supports Devanagari, which
-ML Kit cannot read at all. Its *server* models close most of the ML-Kit-to-Cloud-Vision gap
-on printed panel text. What remains is glare and heavy crumpling — frames `T-2.7` should be
-rejecting rather than reading.
+| Engine | Where | Verdict |
+|---|---|---|
+| **ML Kit** | On the phone | **In use.** Free, fast (825 ms measured), already integrated, returns lines with boxes |
+| PaddleOCR / Surya / docTR / RapidOCR | A laptop you host | **Rejected** — requires a machine tethered to the phone |
+| Cloud Vision, OCR.space | Someone else's server | **Rejected** — Cloud Vision needs a card and there is no budget; OCR.space caps free uploads near 1 MB against 3.6 MB captures, which destroys the 1–2 mm print |
+| PP-OCR mobile via ONNX | On the phone | **Rejected** — no maintained React Native binding, days of native work, 15–30 MB of APK, and the mobile models are markedly weaker than the server ones |
+| Any VLM doing extraction | Anywhere | **Rejected** — reads better, deletes the differentiator (**P1**, **P6**), and approximate boxes break **P7** and starve `A-4` |
 
-**PaddleOCR is a library, not a hosted API.** There is nothing to subscribe to; you run it.
-`pip install paddlepaddle paddleocr fastapi uvicorn` plus a small FastAPI wrapper —
-**no Docker**, which removes that blocker entirely.
+**P2 is restored.** The earlier decision to refuse a verdict with no server is moot — there
+is no server. The device reaches a verdict alone, `NO_PROVIDER_REACHABLE` is dropped, and
+**beat 1 (aeroplane mode) is back**. `T-3.2`, `T-3.4` and `T-6.4` no longer need re-scoping.
 
-**The laptop is a stand-in for a cloud server, not the architecture.** This matters and is
-easy to misread:
+**The door is not closed.** "No laptop" rules out *self-hosted* engines, not server OCR in
+principle: a **cloud** host needs no laptop, and the phone would reach it over mobile data.
+If accuracy ever proves insufficient, that is the escalation — a cloud-hosted PaddleOCR
+first (free software, cheap host), then Cloud Vision via its $300 trial credit or SIH
+sponsor credits. `A-0` exists so that decision is made on numbers.
 
-```
-DEV + DEMO                          REAL DEPLOYMENT
-  [Phone] --USB or hotspot-->         [Officer's phone] --mobile data-->
-  [Laptop running PaddleOCR]          [Cloud host running PaddleOCR]
-  no internet involved                the same code, a different URL
-```
+**Where the remaining accuracy comes from.** With the engine fixed, three levers are left,
+and they are all cheaper than swapping engines would have been:
 
-The app holds a URL in config and never knows which it is talking to. The demo uses the
-laptop so it cannot be killed by venue wifi; production uses `T-1.10`/`T-1.11`, already on
-the board. **Reaching the phone in development:** `adb reverse tcp:8000 tcp:8000` over the
-cable already plugged in — no wifi at all. **On stage:** laptop hotspot, phone joins it.
-Note the phone's wifi is currently *off* (it runs on mobile data), so it must be turned on
-for the hotspot path.
-
-**Free escalation ladder, if `A-0` shows PaddleOCR is not enough.** Do not jump to a credit
-card:
-
-1. **RapidOCR** — PaddleOCR's models on ONNX. Same accuracy, lighter and faster to host.
-2. **Surya OCR** — often stronger than PaddleOCR on hard text. Free at your scale; prefers
-   a GPU and is a heavier install.
-3. **docTR** (Apache 2.0) — another free alternative worth a column in the `A-0` table.
-4. **Only then** Cloud Vision — and even then via the $300/90-day trial credit, SIH sponsor
-   credits (ask the SPOC — Google/AWS/Azure sponsor SIH and most teams never claim them),
-   or the GitHub Student Pack. Its free tier is ~1,000 images/month but still needs a card.
-
-**Rejected: OCR.space.** Free without a card, but the free tier caps uploads at about 1 MB
-against the app's 3.6 MB captures — downscaling that hard destroys exactly the 1–2 mm
-declaration print this tool exists to read. Worth twenty minutes as an `A-0` column to
-confirm, never as the default.
-
-**Rejected: a vision-language model doing the extraction** (Gemini's free tier or similar).
-It would probably read these labels better than any dedicated OCR engine. It would also
-delete the differentiator: **P1** requires the decision layer to be a pure function with no
-learned parameters, and **P6** requires rules to be data. A judge asking *"how do you know
-this pack is missing its MRP?"* currently gets a clause number, a pack version and a pixel
-region; with a VLM the answer is "the model said so". Using one purely as an OCR engine is
-defensible in principle, but its bounding boxes are approximate, which breaks **P7** and
-starves `A-4`.
-
-**Refusing a verdict with no provider reachable supersedes P2.** `CLAUDE.md` states
-*"Offline first — the device must reach a verdict alone. Network is an enhancement path,
-never a dependency."* That is no longer true of this build. Reasoning accepted: a verdict
-an officer cannot trust sends them back to manual inspection. Costs, recorded so they are
-not rediscovered:
-
-- The demo can no longer be given in aeroplane mode, and beat 1 has been rewritten.
-- **In real deployment, an officer with no mobile signal gets no verdict at all** — a
-  basement, a warehouse, a rural market. This is a product behaviour, not a demo detail.
-- `T-3.2` (offline outbox), `T-3.4` (on-device provisional verdict) and `T-6.4`
-  (aeroplane-mode rehearsal) now contradict this and must be re-scoped, not silently left.
-- The problem statement does not appear to require offline operation (user, 2026-09-10),
-  so this is not believed to be a scoring risk.
-
-**What better OCR does and does not fix.** Measured on the two real records, not assumed.
-Of the four defects the field trial found, **one** was a recognition failure
-(`INCL. OF ALL TAXES` read as `NCL. OF 42L TAYES`). The other three were our own logic —
-including the one that matters most, `net_quantity` reporting `15.1g` when the true
-`84.9g` **had been read correctly by ML Kit** and was simply associated with the wrong
-anchor. No OCR upgrade fixes that class. It is `T-2.3`, spatial anchor-value association,
-and it is pulled forward into this track as `A-4`. **Shipping better OCR without `A-4`
-buys a sharper camera pointed at the wrong line.**
-
-**On-device PaddleOCR was considered and not chosen.** PP-OCR mobile models are ~15 MB and
-built for phones, so it is possible — but there is no maintained React Native binding, so
-the route is ONNX Runtime Mobile with converted models: a new native dependency, a full
-Gradle rebuild, ~15–30 MB of models in the APK, and hand-written tensor pre/post-processing
-where ML Kit hands you lines and boxes. Days of work. And the mobile models are markedly
-weaker than the server models, so it would cost the accuracy the change exists to buy.
-Revisit only if the no-signal case becomes a requirement — it is the one route that would
-restore P2. `A-0` can score the mobile models cheaply if that question ever reopens.
+1. **`C-0` — better images.** Every capture measured so far has been a `skipProcessing`
+   live frame, the worst input the app can produce. **ML Kit has never been handed a proper
+   photo.** Fixing that costs nothing.
+2. **`A-4` — better extraction.** The largest defect the field trial found was
+   `net_quantity` reporting `15.1g` when the true `84.9g` **had been read correctly**. That
+   was never an OCR problem; it is anchor-value association, `T-2.3`, and it is now the
+   single biggest accuracy win available.
+3. **`T-2.7` — refusing bad frames and coaching the officer.** Glare and framing are fixed
+   by moving the phone, not by a better model.
 
 ### Not negotiable even in a demo
 
@@ -306,29 +244,27 @@ Mirrored in `docs/PROGRESS.md` under **Now**, which is the source of truth. Upda
 | **D-3** | Field trial — tune against real packets until scans behave | **yes** | `[>]` blocked on packets |
 | **C-0** | **Capture quality** — full-quality still, image upload, preview demoted to viewfinder | **yes** | `[ ]` **not blocked — start here** |
 | **A-0** | OCR provider interface + per-provider corpus, so accuracy is a number | no | `[ ]` not blocked |
-| **A-2** | **PaddleOCR self-hosted as the default provider** | **yes** | `[ ]` not blocked |
 | **A-4** | Spatial anchor-value association (`T-2.3` pulled forward) | no | `[ ]` not blocked |
-| **D-4** | Honest degradation — insufficient evidence, coach hints, no-provider refusal | **yes** | `[ ]` |
-| **A-3** | Accuracy readout — engine, latency and confidence on screen | **yes** | `[ ]` |
+| **D-4** | Honest degradation — insufficient evidence, coach hints, aeroplane mode | **yes** | `[ ]` |
 | **D-5** | Polish and rehearsal — icon, APK, demo script, two run-throughs | **yes** | `[ ]` |
-| ~~A-1~~ | ~~Cloud Vision~~ — **PARKED**, escalation only if `A-0` says PaddleOCR is not enough | — | `[~]` |
+| ~~A-1 / A-2 / A-3~~ | ~~Server OCR~~ — **DROPPED**, see §2.1. Cloud-hosted OCR stays a later escalation if `A-0` ever shows ML Kit is not enough | — | `[~]` |
 
-**Execution order is the table order, and nothing in it is blocked on anyone.** The GCP key
-and the Docker install are both gone as blockers: PaddleOCR needs neither.
+**Execution order is the table order, and nothing in it is blocked on anyone.** No key, no
+card, no Docker, no laptop, no GPU.
 
-`C-0` runs first because it is the cheapest accuracy in the project — no model change, no
-server, no key — and because **it unblocks `D-3`**. Every engine below it reads whatever
-image it is handed; improving the image improves all of them at once.
+`C-0` runs first because it is the cheapest accuracy in the project and because **it
+unblocks `D-3`** — ten packets photographed with the stock camera app beats ten held in
+front of a live scan. It also matters more than it sounds: every capture measured so far
+has been a `skipProcessing` live frame, so **ML Kit has never once been handed a proper
+photo**. Nobody knows what it can actually do.
 
-`A-0` comes before any provider work because without it "PaddleOCR is more accurate" is a
-claim from a benchmark on somebody else's images rather than a measurement on yours, and
-**P8** bars quoting a figure that was not measured. It also makes every later provider
-cheap to evaluate — adding RapidOCR, Surya, docTR or OCR.space as a column is minutes once
-the interface exists.
+`A-0` then measures that, on real packets, so any accuracy claim is a number rather than an
+assertion (**P8**). It keeps the provider interface so a cloud-hosted engine can be scored
+later without touching `extract` or `evaluate` — cheap insurance, not a plan.
 
-`A-4` sits after the provider work but is independent of it, so it lands even if hosting
-stalls. It fixes the largest defect the field trial measured, and no OCR upgrade touches
-that class of failure.
+`A-4` is now the **largest accuracy win available**, since the engine is fixed. The biggest
+defect the field trial found was never an OCR failure: `84.9g` was read correctly and
+associated with the wrong anchor.
 
 ---
 
@@ -448,45 +384,11 @@ helped, and **P8** forbids quoting a figure that was not measured.
 **Done when:** the existing two packets produce a per-provider table, ML Kit's column is
 populated from the records already committed, and adding a provider needs no test changes.
 
-**The first question it must answer:** record 002 read `INCL. OF ALL TAXES` as
-`NCL. OF 42L TAYES` — the crinkled-foil failure, and the one case where a better engine
-genuinely helps. Does PaddleOCR read that line correctly? That single cell decides whether
-anything further up the escalation ladder is needed.
-
-### A-2 — PaddleOCR self-hosted, as the default provider *(device)*
-
-The engine that decides the verdict. Free, no card, no quota, no Docker.
-
-- `POST /ocr` on a minimal FastAPI service — stateless, no Postgres, no auth beyond a
-  shared secret. Accepts a JPEG, returns lines with per-line bounding boxes mapped into
-  the app's existing `OcrLine` shape, so `extract` and `evaluate` are untouched (**P1**).
-- `pip install paddlepaddle paddleocr fastapi uvicorn`. **Server** models, not mobile —
-  the accuracy difference between them is the point of this phase.
-- Phone reaches it by `adb reverse tcp:8000 tcp:8000` while developing (no wifi at all),
-  and by the laptop's hotspot on stage. The phone's wifi is currently off; turn it on.
-- The endpoint URL is **config, not code**. The same build must point at a cloud host in
-  real deployment without a rebuild.
-- Per-stage timings recorded end to end: capture, upload, OCR, download, evaluate. The
-  §16 latency budget was written against on-device OCR and **will be broken** by a round
-  trip. Record the real figure rather than quietly dropping the budget (**P8**).
-- Replay the field-trial packets through it and fill the `paddleocr_server` column of the
-  `A-0` table. **This is the phase that either settles the accuracy question or sends you
-  up the escalation ladder in §2.1.**
-
-**Done when:** the phone reaches a verdict with no internet — laptop hotspot only, mobile
-data off — the screen names PaddleOCR as the source, and the per-provider table shows it
-against ML Kit on the same packets, with the number written into `docs/PROGRESS.md`.
-
-### ~~A-1~~ — Cloud Vision *(PARKED)*
-
-Not being built. Kept on the page so the reasoning is not rediscovered.
-
-Reached for **only** if `A-0` measures PaddleOCR as insufficient on real packets, and only
-after RapidOCR, Surya and docTR have been tried — all free (see the escalation ladder in
-§2.1). Cloud Vision needs a billing account with a card on file even inside its ~1,000
-images/month free tier, and there is no budget. If it ever is built: the API key lives on
-the server and **never inside the APK**, where anyone can extract it from the bundle. Look
-at the $300/90-day trial credit and at SIH sponsor credits before spending anything.
+**The first question it must answer:** how much of the field trial's damage was the
+*capture*, not the engine? Every record so far came from a `skipProcessing` live frame.
+Re-photograph the same packet properly (`C-0`), replay both, and compare. Record 002's
+`INCL. OF ALL TAXES` → `NCL. OF 42L TAYES` is the cell to watch — if a good photo fixes it,
+ML Kit was never the problem and no escalation is needed.
 
 ### A-4 — Spatial anchor-value association *(no device needed)*
 
@@ -505,17 +407,6 @@ the list. Plan §7.2.
 **Done when:** record 002 yields `84.9 g`, record 001 still yields nothing for that field,
 and no earlier packet regresses.
 
-### A-3 — Accuracy readout on screen *(device)*
-
-Makes the tiering legible to a judge instead of hidden.
-
-- The verdict screen names the engine, its latency, and the pack version.
-- A result the phone's own OCR produced can never render as a server result — this is
-  moot while ML Kit is barred from the verdict, and must stay true if that ever changes.
-- The no-server refusal from `D-4` names what it tried and what to do about it.
-
-**Done when:** a judge can tell, from the screen alone, which engine read the label.
-
 ### D-4 — Honest degradation *(device)*
 
 The beat that answers "is it ever wrong?", and the phase that keeps the demo truthful.
@@ -523,15 +414,10 @@ The beat that answers "is it ever wrong?", and the phase that keeps the demo tru
 - `INSUFFICIENT_EVIDENCE` path visible and distinct from `NO_ISSUES_FOUND`.
 - Advisory banner naming the pack, its version and its unreviewed status.
 - Coach hints — move closer, hold steadier, find the declaration panel.
-- **`NO_PROVIDER_REACHABLE`** — a fourth status, distinct from all three above. Neither
-  Cloud Vision nor PaddleOCR answered, so there is no verdict. It names both attempts and
-  what to do. Per the user's 2026-09-10 decision it must **not** fall back to ML Kit.
-- ~~Verified in aeroplane mode, from a cold app start.~~ **Withdrawn** — aeroplane mode now
-  produces a refusal by design. What is verified instead: the refusal is reached from a
-  cold start, is not mistakable for a clean label, and recovers when a provider returns.
+- Verified in aeroplane mode, from a cold app start. (**Restored** — the app is fully
+  offline again after the 2026-09-10 reversal in §2.1.)
 
-**Done when:** a deliberately bad capture refuses to give a verdict and says why, **and**
-a capture with no provider reachable refuses differently, and says why differently.
+**Done when:** a deliberately bad capture refuses to give a verdict, and says why.
 
 ### D-5 — Polish and rehearsal *(device)*
 
@@ -554,27 +440,21 @@ Decided now, so they are not decided at midnight.
 | In **D-2** | Evidence crops → a highlight box on the frozen frame. Still satisfies P7. |
 | In **D-4** | Coach hints. Keep `INSUFFICIENT_EVIDENCE` — that one is a beat. |
 | In **D-5** | Icon and contrast work. A plain app that works beats a pretty one that stalls. |
-| In **A-2** | Server models → PaddleOCR's **mobile** models, if the laptop is too slow. Costs accuracy, keeps the phase. Do not cut the hotspot path — it is what makes the demo immune to venue wifi. |
+| In **C-0** | Image upload, **not** the `skipProcessing` fix. The upload costs a Gradle rebuild; dropping the flag is free and is most of the benefit. |
 | Whole phase | **D-5 before D-4, and D-4 before D-3.** Never drop D-3 to reach D-5 — an unpolished demo that reads real labels beats a polished one that does not. |
 | Whole phase | **Never cut `A-0` or `A-4` to reach a provider integration.** `A-0` is the only thing that makes the accuracy claim true; `A-4` fixes the biggest measured defect and needs no key, no host and no network. |
-| Any time | **Never cut:** the citations, the advisory badge, or the engine-name readout. Those are the demo. |
+| Any time | **Never cut:** the citations, the advisory badge, or aeroplane mode. Those are the demo. |
 
 ---
 
 ## 5. Definition of done
 
 - [ ] APK installs and runs on the Nord 4 with the laptop unplugged.
-- [ ] ~~Full scan → verdict loop completes in aeroplane mode.~~ **Withdrawn 2026-09-10.**
-      Replaced by: aeroplane mode produces `NO_PROVIDER_REACHABLE`, which is visibly
-      distinct from both a clean label and a bad capture.
-- [ ] Full scan → verdict completes over the laptop hotspot with no internet at all.
-- [ ] The `/ocr` URL is configuration, not code — the same APK can point at a cloud host.
-- [ ] The verdict screen names the engine that read the label and its latency.
-- [ ] A per-provider accuracy table exists in `docs/PROGRESS.md`, generated from
-      `field-trial/`, with every figure traceable to a recorded packet (**P8**).
+- [ ] Full scan → verdict loop completes in aeroplane mode.
+- [ ] A packet photographed with the stock camera app can be uploaded, judged and recorded.
+- [ ] An accuracy table exists in `docs/PROGRESS.md`, generated from `field-trial/`, with
+      every figure traceable to a recorded packet (**P8**).
 - [ ] Record 002 yields `84.9 g` for net quantity (`A-4`'s acceptance test).
-- [ ] Record 002's `INCL. OF ALL TAXES` line is read correctly by the default provider,
-      or the table says plainly that it is not.
 - [ ] Every finding shows statute, rule id, sub-clause, and rule-pack version.
 - [ ] Every finding shows an image region.
 - [ ] No finding renders as `violation`; all are `advisory`.
