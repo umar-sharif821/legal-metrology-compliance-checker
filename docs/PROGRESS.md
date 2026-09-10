@@ -3,7 +3,7 @@
 > Single source of truth for project state. Updated by `/handoff`, read by `/pickup`.
 > Keep it terse. This file is read in full every session — every line costs tokens.
 
-**Last updated:** 2026-09-10 · **Sessions completed:** 6 · **Current sprint:** 1 (paused for the demo detour)
+**Last updated:** 2026-09-10 · **Sessions completed:** 7 · **Current sprint:** 1 (paused for the demo detour)
 
 ---
 
@@ -16,12 +16,15 @@
 > `rulepack/*.json`.
 
 **Current demo phase:** `D-3` — field trial
-**Status:** in progress — tooling built and proven on device; **2 of 10 packets recorded**
+**Status:** in progress — tooling done, **all four measured defects fixed**, corpus green;
+**2 of 10 packets recorded**
 **Blocked on:** the user has only one packet. `D-3` cannot finish without eight or nine more.
 
-**`npm test` is RED, deliberately. Four failures, all in `mobile/src/scan/corpus.test.ts`.**
-They are the D-3 to-do list, not a breakage. The other eight gates are green. Each failure
-names a defect measured on a real packet — do not "fix" them by loosening the expectations.
+**All nine gates are green.** `npm test` was red on four `corpus.test.ts` failures from the
+first field trial; those are the four defects fixed this session (see below). Both records
+now replay to the verdict their reviewer expected. The next packet recorded will red the
+suite again until somebody writes its `expect` block — that is the mechanism working, not
+a breakage.
 
 ### The corpus and how it works
 
@@ -37,30 +40,64 @@ Record with the **Record** control on the verdict screen (`FieldTrialBar.tsx`) �
 packet, tap Record. It is its own file and its own strip of screen so `D-5` can delete it
 with one import and one element.
 
-### What D-3 measured — four failures, root causes established
+### What D-3 measured, and what was done about it
 
 Both records are the *same compliant packet* (Lay's/PepsiCo bhujia namkeen). It has all six
 declarations printed. **The app flagged it `ATTENTION` both times and every finding was
 false.** That is the P3 failure the demo exists to prevent, found on the first real packet.
+Four root causes were established; all four are now closed.
 
-1. **Anchor matching has no word boundary.** `findAnchorEnd` in `mobile/src/scan/normalise.ts:71`
-   is a bare `line.indexOf(anchor)`. The `commodity_name` lexicon holds `"product"`, the line
-   read `ingredients: cereal products (6779%)`, so it matched *inside* `products` — and
-   because `anchor_remainder_is_value: true`, the value came back as
-   `"s (6779%) (rice meal (44%),"` at **high** confidence, the leading `s` being the leftover
-   of the word. Will misfire on "Cereal Products", "Dairy Products", "Product of India".
-   **Not overfitting to one packet — a real defect.** Fix is a word-boundary match (TS).
-2. **Stage B pairs by list index, not geometry.** `mobile/src/scan/extract.ts:133` is
-   `normalised[i + k]`. In record 001 that paired `NET QTY:` (idx 30, y=3365, x=942) with
-   `Pee 100g` (idx 31, y=1697, x=1787) — the nutrition table's "Per 100 g", 1668 px away in
-   another column — and reported `net_quantity = "100g"` at medium confidence. Every box
-   needed to reject it is in the record and is never read. This is `T-2.3`.
-3. **Stage C matched an FSSAI category code as a quantity.** Record 002 returned
-   `net_quantity = "15.1g"` out of `PROPRIETARY FOOD--NAMKEEN(15.1)`. Shape is too loose.
-4. **`LMPC-6-1-MRP-INCLUSIVE` is a false flag on OCR noise.** The packet *does* say
-   "INCL. OF ALL TAXES"; OCR returned `MIRP RS. 20/- (NCL. OF 42L TAYES)` and the phrase
-   check failed. The pack's own remedy text already predicts this ("a common OCR miss").
-   Tunable in the lexicon — no code change.
+1. **Anchor matching had no word boundary. FIXED (TS).** `findAnchorEnd` was a bare
+   `line.indexOf(anchor)`. The `commodity_name` lexicon holds `"product"`, the line read
+   `ingredients: cereal products (6779%)`, so it matched *inside* `products` and returned
+   `"s (6779%) (rice meal (44%),"` at **high** confidence. Now the boundary is required
+   only on the sides where the anchor itself ends in a letter or digit — so `product`
+   cannot match inside `products`, while `m.r.p.` and `net qty.` still match when they run
+   into following punctuation, which a `\b` regex would refuse. Every occurrence in a line
+   is tried, not just the first.
+2. **Stage B paired by list index with no geometry at all. GUARDED (TS), not solved.**
+   In record 001 it paired `NET QTY:` (idx 30, y=3365) with `Pee 100g` (idx 31, y=1697) —
+   the nutrition table's "Per 100 g", 1668 px away in another column. Stage B now requires
+   the candidate's bottom edge to fall below the anchor's top edge. That is the weakest
+   test that is still true by definition of what Stage B claims to do, and it introduces
+   **no distance threshold and no column test** — those are `T-2.3`, chosen against the
+   gold set, not against one packet. With no geometry from the engine it degrades to the
+   old list-order behaviour.
+3. **Stage C matched an FSSAI category code as a quantity. FIXED (JSON).** Record 002
+   returned `net_quantity = "15.1g"` out of the category code in
+   `PROPRIETARY FOOD--NAMKEEN(15.1)`. The pack's claim that this shape is "distinctive
+   enough to recover without an anchor" is what the trial falsified — a nutrition panel is
+   full of numbers with mass units. `net_quantity.unanchored_recovery` is now `false`.
+   The cost is accepted deliberately: a packet whose `Net Qty` anchor is missed now reports
+   the declaration not found, which is an advisory saying *rescan the panel*. That is
+   honest about what was read, where `15.1g` was a confident falsehood about what the label
+   says (P3, P4).
+4. **`LMPC-6-1-MRP-INCLUSIVE` was a false flag on OCR noise. FIXED — but not the way the
+   record proposed.** The packet does say "INCL. OF ALL TAXES"; OCR returned
+   `MIRP RS. 20/- (NCL. OF 42L TAYES)` and the phrase check failed. The reviewer's note
+   said this was "tunable in the lexicon, no code change". **Overruled on inspection.** No
+   phrase list fixes it: a literal for that garble overfits the pack to one packet, and a
+   short fragment like `ncl` matches almost anything. The check now carries
+   `requires_anchored_field: true` — it may only *fail* when the price was located by an
+   anchor (stage A or B). Recovered by shape alone the check is skipped, not failed. Saying
+   "the prescribed wording is absent" is a claim about what is printed, and a scan that
+   could not read the letters M-R-P has no warrant to make it (P3, P9). Where the anchor
+   was read, the finding still fires — pinned by a control test. **No fuzzy or
+   edit-distance matching exists anywhere in the demo**; character-confusion repair is
+   `T-2.1`, measured against the gold set.
+
+**A synthetic fixture had been passing on the strength of defect 1 since `D-0`.**
+`COMPLETE_LABEL` is documented as "a label carrying all six declarations" and the suite
+reported six found — but the sixth came from the anchor `product` matching inside
+`Parle Products Pvt. Ltd.` on the manufacturer line, yielding `s pvt. ltd.` as the
+commodity name. No test asserted the *value*, so a fixture that did not carry the
+declaration passed a test named for carrying it. The fixture now says `Common Name:
+Glucose Biscuits`. Worth remembering when reading any other green synthetic assertion.
+
+**Seven regression tests added** (`extract.test.ts`, `evaluate.test.ts`), each naming the
+packet observation behind it, plus a control for the two fixes that make a check *harder*
+to fire. The corpus catches these too, but it is two records of one packet; the unit tests
+state the rule in terms that survive the corpus being pruned in `D-5`.
 
 **The same packet gives a different verdict every pass** (record 001 found 2 fields, record
 002 found 3, sharing none). P1 holds — the decision layer is pure — but its input is
@@ -68,8 +105,9 @@ stochastic. Worth stating plainly in the pitch rather than letting it be discove
 
 **Evidence highlight: PROVEN.** D-2's open item is closed. `LMPC-6-1-MRP-INCLUSIVE` in
 record 002 carries `evidenceBox=True`; tapping the finding draws the amber box over the MRP
-line on the frozen frame. Beat 5 has a visual. Note it is currently a *false* flag — a real
-present-but-defective declaration is still wanted, but the demo beat no longer has nothing.
+line on the frozen frame. Beat 5 has a visual. **Note that fix 4 above removes this exact
+flag** — it was a false one. A real present-but-defective declaration is now *wanted*, not
+merely preferred, or beat 5 has nothing to point at again.
 
 ### Judgement calls in the `expect` blocks — overrule freely
 
@@ -82,6 +120,10 @@ Both records' `notes` fields carry the reasoning. The two that matter:
 - Record 001 `commodity_name` expects `null`, though `namkeen` (line 8) is arguably the
   commodity name. Left null: P3 prefers silence, and one packet does not justify a new
   lexicon term.
+
+The records' `extracted` and `verdict` blocks are **deliberately not updated** to match the
+fixed code. They are a log of what the device did at record time — a measurement. The
+`expect` block is the normative half, and it is the only half the suite reads.
 
 ### Device notes learned this session
 
@@ -103,12 +145,26 @@ Rebuild and run with `cd mobile && npx expo run:android --device CPH2661`. **The
 name is `CPH2661`, not the adb serial.** Incremental Gradle is ~24 s; the JS bundle ~9 s.
 JS edits reload over Metro with no rebuild — this session's changes needed none.
 
+**Verifying a JS-only change without touching the phone's screen.** A Metro was already
+serving on 8081 (`curl -s localhost:8081/status` → `packager-status:running`; a second
+`expo start` just refuses the port). `curl "localhost:8081/index.bundle?platform=android&dev=true&minify=false"`
+returns the built bundle — grepping it for a string you just added proves Metro is serving
+*this* checkout. Then `adb shell am force-stop` + relaunch and read `adb logcat` for
+`PackError` / `rule pack is invalid`: the pack compiles at module load, so a bad pack shows
+up there rather than at first scan. Done this session; app reached the scan screen clean.
+
+**Do not launch with `adb shell monkey`.** Even `monkey -p <pkg> -c android.intent.category.LAUNCHER 1`
+injects one random event after launching, and it landed on the freeze control — the app
+came up already frozen on a verdict. Harmless here, but it is not a clean launch. Use
+`adb shell am start -n <pkg>/.MainActivity` instead.
+
 Demo phases, in priority order. After each one there is still a demo you could give.
 
 - [x] `D-0` Foundations — scaffold, Gradle build green, rule pack, evaluator, unit tests · *no device*
 - [x] `D-1` Shell on the phone — one still capture reaches ML Kit and prints text
 - [x] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
-- [>] `D-3` Field trial — 2/10 packets recorded; tooling done; blocked on packets
+- [>] `D-3` Field trial — 2/10 packets recorded; tooling done, all four measured defects
+      fixed and the corpus green; blocked on packets
 - [ ] `D-4` Honest degradation — insufficient evidence, coach hints, aeroplane mode
 - [ ] `D-5` Polish and rehearsal — icon, standalone APK, `docs/DEMO_SCRIPT.md`, two run-throughs
 
@@ -131,15 +187,21 @@ caps at `max_severity: advisory`. Contested sub-clause letters go in
 
 Nine gates: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`,
 `ruff check .`, `ruff format --check .`, `pytest`, `npm audit`, `python rulepack/validate.py`.
-Eight are green; `npm test` is red on the D-3 corpus suite only — see **Now**. Run them all
-before and after any change.
+**All nine are green** as of this session. Run them all before and after any change.
 
 Setup on a fresh clone: `npm install` and `python -m pip install -r requirements-dev.txt`.
 
 **Needed from user:**
 - **Keep the Nord 4 connected.** `D-3`…`D-5` all need it. Device name `CPH2661`,
   serial `bac3856a`, camera permission already granted to `com.sih26034.lmscan`.
-- **Eight or nine more packets for `D-3`.** The user has one (Lay's bhujia namkeen, recorded
+- **A second packet was in front of the camera this session and was not recorded.** The
+  smoke-test launch caught a live pass over what looks like a Bhujialalji (Bikaner) bhujia
+  packet: 118 OCR lines, **0 of 6 declarations located**, `INSUFFICIENT_EVIDENCE`. Not
+  recorded, for two reasons — the frame was a poor one (panel lying sideways, half the
+  shot bedsheet), and an unreviewed record reds the suite until a person writes its
+  `expect` block, which is the user's call, not this session's. **If that packet is still
+  to hand, capture it properly and hit Record — it is packet 3 of 10.**
+- **Eight more packets for `D-3`.** The user has one (Lay's bhujia namkeen, recorded
   twice). **This is the blocker.** LMPC covers *any* packaged commodity, so toothpaste, soap,
   shampoo, tea, salt, atta, oil, biscuits, noodles, a medicine box all qualify — variety is
   the point, since the wording varies (`Net Wt.`/`Net Qty`/`Quantity`, g/ml/kg/L, MRP
@@ -210,6 +272,13 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-10` ADB over Wi-Fi is unavailable on this phone: Wi-Fi is off and it runs on mobile data. Field trials are tethered; do not re-attempt wireless setup.
 - `2026-09-10` Driving the phone needs a retry loop that verifies the expected screen after each tap. Single blind taps are dropped when they land during a re-render, repeatedly and unpredictably.
 - `2026-09-10` Bottom-anchored controls reserve `NAV_BAR_INSET = 48` for Android's navigation bar. Same reasoning as the top banner's `StatusBar.currentHeight`: edge-to-edge is forced, the platform exposes no bottom equivalent to JS, and `react-native-safe-area-context` stays rejected.
+- `2026-09-10` **Anchors match on a boundary, not by `indexOf` and not by `\b`.** The boundary is required only on the sides where the anchor itself ends in a letter or digit, so `product` cannot match inside `products` while `m.r.p.` and `net qty.` still match running into following punctuation — which a `\b`-delimited regex refuses, there being no word boundary between `.` and `:`. All occurrences in a line are tried, not just the first.
+- `2026-09-10` **Stage B consults geometry, minimally: the candidate's bottom edge must fall below the anchor's top edge.** No distance threshold and no column test — those are `T-2.3`, chosen against the gold set. This one is not a heuristic being tuned; it is Stage B's own stated claim ("value just below the anchor") finally being checked. With no boxes from the engine it degrades to list order.
+- `2026-09-10` **`net_quantity` no longer recovers from shape alone.** The pack's claim that a number-plus-unit is "distinctive enough to recover without an anchor" was falsified by record 002, which read `15.1g` out of an FSSAI food-category code. A nutrition panel is full of numbers with mass units. Accepted cost: a missed anchor now yields a "not found" advisory saying *rescan*, instead of a confident wrong value (P3, P4).
+- `2026-09-10` **A `context_phrase_present` check may declare `requires_anchored_field`, which bars it from *failing* on a stage-C value.** A negative claim about printed wording needs the label to have been read well enough to support it. **This replaces the "tune the phrase list" idea, which was inspected and rejected:** a literal for one packet's garble overfits the pack to that packet, and a short fragment matches everything. **No fuzzy or edit-distance matching exists anywhere in the demo** — character-confusion repair is `T-2.1`, measured against the gold set, per `normalise.ts`'s own deferral.
+- `2026-09-10` **Two of the four D-3 fixes make a check *harder* to fire, so each has a control test** asserting it still fires where the evidence does warrant it. A fix that only ever silences is indistinguishable from deleting the rule.
+- `2026-09-10` **A synthetic fixture can pass on the strength of the bug it was meant to catch.** `COMPLETE_LABEL` claimed all six declarations and the suite agreed — the sixth came from `product` matching inside `Parle Products Pvt. Ltd.`, and no test asserted the value. Assert values, not just presence, or a fixture proves nothing.
+- `2026-09-10` **Field-trial records' `extracted`/`verdict` blocks are never updated to match fixed code.** They are the log of what the device did at record time. Only the hand-written `expect` block is normative, and only it is read by the suite.
 
 ---
 
@@ -238,11 +307,13 @@ Noticed but deliberately out of scope for now. Do not action without asking.
   no task on the board creates a schema for it. `T-1.9` compares verdicts byte-identically,
   which will catch divergence but not a shape both evaluators get wrong together. Decide
   before `T-1.7` whether the envelope gets its own schema.
-- **Anchor–value column offset — now measured twice, with numbers.** See **Now** items 2
-  and the record-002 judgement call. Stage B pairs by *list index*, not geometry, and the
-  boxes needed to reject a bad pairing are already in the record. This is `T-2.3`. Still do
-  not tune the association heuristic against this one packet — but note the *defect* is now
-  established (the geometry is simply never consulted), which is separate from tuning it.
+- **Anchor–value spatial association — still `T-2.3`, now partly guarded.** Stage B no
+  longer pairs an anchor with a line printed *above* it (see **Now** item 2), which kills
+  the measured false pairing without introducing a threshold. What remains is the real
+  task: distance, column overlap and reading order, so record 002's `84.9 g` — 19 list
+  indices from its anchor but right beside it on the label — is actually reached. Its
+  `expect` block still says `null` and should be changed to `"84.9 g"` when `T-2.3` lands.
+  Do not tune distance or column numbers against this one packet.
 - `rulepack/CHANGELOG.md` is in the plan §18 layout ("every clause change, dated, with
   reviewer") but no task creates it. Fold it into `T-1.3`, which writes the first pack.
 - **The `Record` control ships in the app.** `D-5` must decide whether the pitch shows a
@@ -253,10 +324,13 @@ Noticed but deliberately out of scope for now. Do not action without asking.
   and ML Kit honour the same tag, so they never disagree with each other. Cosmetic only;
   fix in `D-5` polish, or drop `skipProcessing` in `D-3` and pay the rotate-and-rescale
   latency. Do not "fix" it by rotating the overlay — that reintroduces the bug D-2 removed.
-- ~~`commodity_name` extracted `"may differ."`~~ **Root cause found, see Now item 1** — both
-  this and the `"s (6779%) (rice meal (44%),"` case are the same bug: `indexOf` matched the
-  lexicon term `product` inside `product may differ` / `cereal products`. Not a lexicon
-  tuning job after all. Fix is a word-boundary match in `normalise.ts`.
+- ~~`commodity_name` extracted `"may differ."`~~ / ~~`"s (6779%) (rice meal (44%),"`~~
+  **RESOLVED** — the boundary-aware anchor match (Now item 1) closes the `cereal products`
+  case, pinned by a regression test. One caveat kept deliberately: a line reading
+  `product may differ` would match `product` as a *whole word* and still be taken, since
+  the field's `anchor_remainder_is_value` gives it whatever follows. That is a lexicon
+  question (is `product` too generic an anchor for `commodity_name`?), not a matching bug,
+  and one packet does not settle it. Watch for it as packets 3–10 arrive.
 
 ---
 

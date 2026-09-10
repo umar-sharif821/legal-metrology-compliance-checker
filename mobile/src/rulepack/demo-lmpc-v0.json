@@ -217,10 +217,10 @@
       "value_shape": "quantity_with_unit",
       "anchor_remainder_is_value": false,
       "anchored_value_shape": "quantity_loose",
-      "unanchored_recovery": true,
+      "unanchored_recovery": false,
       "value_presentation": "captured",
       "value_may_span_lines": 1,
-      "extraction_note": "Shape is distinctive enough to recover without an anchor."
+      "extraction_note": "Anchored recovery only. This field claimed 'shape is distinctive enough to recover without an anchor' until the D-3 field trial falsified it: on record 002 shape-only recovery returned '15.1g', read out of the FSSAI food-category code in 'PROPRIETARY FOOD--NAMKEEN(15.1)'. A number with a mass unit is not distinctive on a food label - a nutrition panel is full of them (0.3g, 33.4g, 08g), and nothing in the line alone separates the declaration from the table. Turning this off means a packet whose 'Net Qty' anchor is missed now reports the declaration as not found, which is an advisory saying 'rescan the panel' - honest about what was read, where '15.1g' was a confident falsehood about what the label says (P3, P4). Recovering the real value from an anchor several lines away needs spatial association: T-2.3."
     },
     {
       "id": "retail_sale_price",
@@ -366,7 +366,9 @@
           "incl of all taxes",
           "inclusive of taxes",
           "inc. of all taxes"
-        ]
+        ],
+        "requires_anchored_field": true,
+        "requires_anchored_field_note": "This check may only FAIL when the price was located by an anchor (stage A or B). Recovered by shape alone (stage C) the check is skipped, not failed. D-3 record 002: the packet does carry the wording, OCR returned 'MIRP RS. 20/- (NCL. OF 42L TAYES)', the phrase match failed, and a compliant declaration was flagged. Saying 'the prescribed wording is absent' is a claim about what is printed; a scan that could not even read the letters M-R-P, and found the price only because a rupee sign happened to survive, has no warrant to make it (P3, P9). Where the anchor WAS read the label was legible and the finding stands. This is not OCR-noise tolerance in the phrase list - no fuzzy or edit-distance matching is done anywhere in the demo, and adding literal variants of one packet's garble would overfit the pack to it. Character-confusion repair is T-2.1, measured against the gold set."
       },
       "clause": {
         "rule": "6",

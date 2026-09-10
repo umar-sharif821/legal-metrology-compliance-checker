@@ -50,6 +50,11 @@ function runCheck(
       // Likewise: a phrase qualifying a declaration is only meaningful once the
       // declaration itself has been found.
       if (!extracted) return 'skipped';
+      // And a *negative* claim about wording needs the label to have been read well
+      // enough to support it. A value recovered by shape alone, with no anchor
+      // recognised anywhere, is not that (P3, P9). The pack decides which checks this
+      // applies to; the interpreter only obeys.
+      if (check.requiresAnchoredField && extracted.stage === 'C_shape_only') return 'skipped';
       return check.anyOf.some((phrase) => wholeText.includes(phrase)) ? 'passed' : 'failed';
   }
 }

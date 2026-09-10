@@ -100,6 +100,71 @@ describe('extraction cascade', () => {
     expect(qty?.value).toBe('250');
   });
 
+  // ---- D-3 field-trial regressions ---------------------------------------
+  //
+  // Each of these pins a defect measured on a real packet. The corpus in
+  // `field-trial/` catches them too, but it is two records of one packet; these say
+  // what the rule is, in terms that do not depend on that packet still being there.
+
+  it('does not match an anchor inside a longer word', () => {
+    // Measured on record 001: the `commodity_name` anchor `product` matched inside
+    // `cereal products` on the INGREDIENTS line and, because that field takes the
+    // anchor's remainder as its value, returned the leftover of the word as a HIGH
+    // confidence commodity name. A confident wrong value is the expensive error (P3).
+    const { get } = run([
+      'SOME BRAND',
+      'INGREDIENTS: Cereal Products (6779%) (Rice Meal (44%),',
+      'and Condiments, Iodised Salt, Sugar,',
+      'Mfd. by: Parle Products Pvt. Ltd.',
+      'Nashik 422010, India',
+      'Net Wt. 250 g',
+    ]);
+    expect(get('commodity_name')).toBeUndefined();
+  });
+
+  it('still matches an anchor that runs into its own punctuation', () => {
+    // The other half of the same rule: the boundary is only required where the anchor
+    // itself ends in a letter or digit. `net qty.` ends in a dot and must still match
+    // `NET QTY.: 250 g`, which a `\b`-delimited regex would refuse.
+    const { get } = run(['SOME BRAND', 'NET QTY.: 250 g', 'a', 'b', 'c', 'd']);
+    expect(get('net_quantity')?.value).toBe('250 g');
+    expect(get('net_quantity')?.stage).toBe('A_anchored_inline');
+  });
+
+  it('will not pair an anchor with a value printed above it', () => {
+    // Measured on record 001: `NET QTY:` (list index 30, y=3365) was paired with
+    // `Pee 100g` (index 31, y=1697) — the nutrition table's "Per 100 g", most of a
+    // panel higher up — and reported as the net quantity at medium confidence. Stage B
+    // claims the value sits *below* the anchor; before D-3 it never checked.
+    // The anchor comes first in the list, so list order offers `Per 100 g` as its
+    // value — but that line is printed 800 px higher up the label.
+    const result = extract(DEMO_PACK, [
+      { text: 'NET QTY:', box: { x: 942, y: 1000, width: 263, height: 118 } },
+      { text: 'Per 100 g', box: { x: 1787, y: 200, width: 160, height: 77 } },
+    ]);
+    expect(result.fields.find((f) => f.fieldId === 'net_quantity')).toBeUndefined();
+  });
+
+  it('still pairs an anchor with the value below it', () => {
+    // The control for the test above: same shapes, geometry the other way round.
+    const result = extract(DEMO_PACK, [
+      { text: 'NET QTY:', box: { x: 942, y: 1000, width: 263, height: 118 } },
+      { text: '84.9 g', box: { x: 942, y: 1140, width: 200, height: 110 } },
+    ]);
+    const qty = result.fields.find((f) => f.fieldId === 'net_quantity');
+    expect(qty?.value).toBe('84.9 g');
+    expect(qty?.stage).toBe('B_anchored_adjacent');
+  });
+
+  it('does not recover a quantity from its shape alone', () => {
+    // Measured on record 002: shape-only recovery returned `15.1g`, read out of the
+    // FSSAI food-category code in `PROPRIETARY FOOD--NAMKEEN(15.1)`. A number with a
+    // mass unit is not distinctive on a food label — a nutrition panel is full of them.
+    // The pack now marks the field `unanchored_recovery: false`.
+    const { get } = run(['SOME BRAND', 'a line', '250 g', 'another line', 'x', 'y']);
+    expect(get('net_quantity')).toBeUndefined();
+  });
+
   it('does not accept a best-before date as the date of manufacture', () => {
     const { get } = run(fx.BEST_BEFORE_ONLY);
     expect(get('date_of_packing')).toBeUndefined();

@@ -20,10 +20,20 @@ export function linesFrom(texts: readonly string[], lineHeight = 40): OcrLine[] 
   });
 }
 
-/** A label carrying all six declarations, correctly formed. */
+/**
+ * A label carrying all six declarations, correctly formed.
+ *
+ * The commodity name is anchored (`Common Name:`) because the pack recovers this field
+ * by anchor only. Until D-3 this fixture read plain `Glucose Biscuits` and the suite
+ * still reported six declarations found — the anchor `product` was matching inside
+ * `Parle Products Pvt. Ltd.` on the manufacturer line and returning `s pvt. ltd.` as
+ * the commodity name. No test asserted the *value*, so a fixture that did not carry
+ * this declaration at all passed a test named for carrying it. Fixed with the
+ * word-boundary match in `normalise.ts`; the fixture now says what it claims to say.
+ */
 export const COMPLETE_LABEL: readonly string[] = [
   'PARLE-G',
-  'Glucose Biscuits',
+  'Common Name: Glucose Biscuits',
   'Net Wt. 250 g',
   'M.R.P. Rs. 30.00',
   '(Inclusive of all taxes)',

@@ -47,6 +47,33 @@ describe('verdict', () => {
     expect(ids).not.toContain('LMPC-6-1-MRP-PRESENT');
   });
 
+  it('will not call the tax wording absent on a price it found by shape alone', () => {
+    // Measured on D-3 record 002. The packet does carry "INCL. OF ALL TAXES"; OCR
+    // returned `MIRP RS. 20/- (NCL. OF 42L TAYES)`, so no MRP anchor was recognised,
+    // the price was recovered from the surviving rupee sign alone (stage C), and the
+    // phrase check flagged a compliant declaration. Claiming the prescribed wording is
+    // absent is a claim about what is printed, and a scan that could not read the
+    // letters M-R-P has no warrant to make it (P3, P9).
+    const { ids } = scan([
+      'SOME BRAND',
+      'MIRP RS. 20/- (NCL. OF 42L TAYES)',
+      'Consumer Care: care@example.com',
+      'a line',
+      'another line',
+      'and another',
+    ]);
+    expect(ids).not.toContain('LMPC-6-1-MRP-INCLUSIVE');
+    expect(ids).not.toContain('LMPC-6-1-MRP-PRESENT');
+  });
+
+  it('still calls the tax wording absent on a price it found by anchor', () => {
+    // The control: the same check must keep firing where the label was read well
+    // enough to say so. `PRICE_WITHOUT_TAX_WORDING` carries `M.R.P. Rs. 30.00`, an
+    // anchored stage-A match, and genuinely omits the wording.
+    const { ids } = scan(fx.PRICE_WITHOUT_TAX_WORDING);
+    expect(ids).toContain('LMPC-6-1-MRP-INCLUSIVE');
+  });
+
   it('distinguishes a malformed declaration from an absent one', () => {
     // `Net Wt. 250` is present but carries no standard unit. That is one finding about
     // its form, not a finding that the declaration is missing.

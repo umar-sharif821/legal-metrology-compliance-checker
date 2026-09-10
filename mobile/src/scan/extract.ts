@@ -48,6 +48,33 @@ function unionBox(boxes: readonly (Box | null)[]): Box | null {
 }
 
 /**
+ * Is `candidate` anywhere other than *above* `anchor` on the label?
+ *
+ * Stage B's whole claim is "anchor on one line, value **just below** it", and until D-3
+ * it never checked. It paired by position in the OCR line list, which is reading order
+ * over the whole panel, not adjacency on the label. Measured on record 001: `NET QTY:`
+ * (index 30, y=3365) was paired with `Pee 100g` (index 31, y=1697) — the nutrition
+ * table's "Per 100 g", 1668 px away and most of the panel *higher up* — and the app
+ * reported `net_quantity = "100g"` at medium confidence. Every number needed to reject
+ * that pairing was already in the record and was never read.
+ *
+ * The test is deliberately the weakest one that is still true by definition: the
+ * candidate's bottom edge must fall below the anchor's top edge. A value OCR split onto
+ * its own line entry while sharing the anchor's row still passes; only a candidate
+ * wholly above the anchor is refused. There is no distance threshold and no column
+ * test here on purpose — choosing those numbers against a single packet is exactly the
+ * tuning `T-2.3` exists to do properly, against the gold set.
+ *
+ * With no geometry from the engine the answer is `true`: degrade to the old list-order
+ * behaviour rather than refusing to extract at all (P9 — the stage and confidence still
+ * say how the value was found).
+ */
+function isNotAbove(anchorBox: Box | null, candidateBox: Box | null): boolean {
+  if (anchorBox === null || candidateBox === null) return true;
+  return candidateBox.y + candidateBox.height > anchorBox.y;
+}
+
+/**
  * The matched slice of `text`, or null.
  *
  * The **whole** match is returned, never a capture group. Groups exist in these shapes
@@ -133,6 +160,7 @@ function extractField(
     for (let k = 1; k <= span && i + k < normalised.length; k++) {
       const below = normalised[i + k];
       if (below.length === 0) continue;
+      if (!isNotAbove(lines[i]?.box ?? null, lines[i + k]?.box ?? null)) continue;
       if (anchoredShape) {
         const hit = shapeMatch(anchoredShape.re, below);
         if (hit !== null) {

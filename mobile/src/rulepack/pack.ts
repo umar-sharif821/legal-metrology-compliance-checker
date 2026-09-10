@@ -73,7 +73,18 @@ export interface CompiledField {
 export type CompiledCheck =
   | { readonly kind: 'field_present' }
   | { readonly kind: 'value_wellformed'; readonly shape: CompiledShape }
-  | { readonly kind: 'context_phrase_present'; readonly anyOf: readonly string[] };
+  | {
+      readonly kind: 'context_phrase_present';
+      readonly anyOf: readonly string[];
+      /**
+       * May this check fail on a field that was recovered by shape alone (stage C)?
+       *
+       * When true it may not: with no anchor read, the scan has no warrant to claim the
+       * qualifying wording is absent, and the check is skipped instead. See the check's
+       * own note in the pack for the D-3 measurement behind it.
+       */
+      readonly requiresAnchoredField: boolean;
+    };
 
 export interface AlternateReading {
   readonly subClause: string;
@@ -244,7 +255,11 @@ function compileCheck(
         str(p, `${where}.any_of[${i}]`).toLowerCase(),
       );
       if (phrases.length === 0) throw new PackError(`${where}.any_of`, 'must not be empty');
-      return { kind: 'context_phrase_present', anyOf: phrases };
+      return {
+        kind: 'context_phrase_present',
+        anyOf: phrases,
+        requiresAnchoredField: o.requires_anchored_field === true,
+      };
     }
     default:
       throw new PackError(`${where}.kind`, `unknown check kind '${kind}'`);
