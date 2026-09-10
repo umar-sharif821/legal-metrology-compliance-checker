@@ -48,6 +48,7 @@ import {
 } from 'react-native';
 
 import type { OcrFrame } from '../scan/types';
+import { NAV_BAR_INSET } from '../ui/layout';
 import VerdictScreen from '../verdict/VerdictScreen';
 import { judge, type Judgement } from './capture';
 import Overlay, { type OverlayBox } from './Overlay';
@@ -457,7 +458,15 @@ const styles = StyleSheet.create({
   },
   retryText: { color: '#FCA5A5', fontSize: 13, fontWeight: '700' },
 
-  controls: { position: 'absolute', left: 0, right: 0, bottom: 36, alignItems: 'center' },
+  controls: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    // Without the inset the gallery link's lower third falls inside the navigation bar's
+    // touch region and a tap aimed at it reaches HOME instead. Measured on the Nord 4.
+    bottom: 36 + NAV_BAR_INSET,
+    alignItems: 'center',
+  },
   workingRow: {
     flexDirection: 'row',
     alignItems: 'center',

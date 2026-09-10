@@ -36,6 +36,7 @@ import type { Size } from '../camera/projection';
 import type { JudgedCapture } from '../camera/capture';
 import FieldTrialBar from '../scan/FieldTrialBar';
 import type { ExtractionResult } from '../scan/types';
+import { NAV_BAR_INSET } from '../ui/layout';
 import type { FieldReport, Finding, Verdict, VerdictStatus } from './types';
 
 interface Props {
@@ -51,22 +52,6 @@ interface Props {
   readonly extraction: ExtractionResult;
   readonly onResume: () => void;
 }
-
-/**
- * Room left under the action bar for Android's navigation bar.
- *
- * Android 15 forces edge-to-edge, so a bottom-anchored control is drawn *under* the
- * navigation bar unless something reserves the space — measured on the Nord 4, where the
- * button came out half-hidden behind it. The top banner takes its inset from
- * `StatusBar.currentHeight`, but the platform exposes no matching number for the bottom,
- * and `react-native-safe-area-context` was already rejected for this app: a native
- * dependency costing a full Gradle rebuild mid-demo, for one measurement.
- *
- * 48 is the height of the three-button bar and comfortably clears the gesture pill, so it
- * is safe in both modes — generous by a couple of dp under gestures, which is the right
- * way to be wrong here.
- */
-const NAV_BAR_INSET = 48;
 
 interface StatusStyle {
   readonly label: string;

@@ -3,7 +3,7 @@
 > Single source of truth for project state. Updated by `/handoff`, read by `/pickup`.
 > Keep it terse. This file is read in full every session — every line costs tokens.
 
-**Last updated:** 2026-09-10 · **Sessions completed:** 8 · **Current sprint:** 1 (paused for the demo detour)
+**Last updated:** 2026-09-10 · **Sessions completed:** 9 · **Current sprint:** 1 (paused for the demo detour)
 
 ---
 
@@ -33,19 +33,51 @@
 > All three are cheaper than swapping engines would have been, and `A-4` fixes the largest
 > defect the field trial found, which was never an OCR failure.
 
-**Current demo phase:** `C-0` — capture quality · **done**, one item unverified (below)
-**Status:** built, all nine gates green, capture path verified on the Nord 4.
-**Unverified:** the **upload** path. It builds, autolinks and is in the served bundle, but
-the picker was never opened on the device — the user picked their phone up mid-test and
-driving it further would have been rude. **This is a one-tap check, not a rebuild:** open
-the app, tap *Use a photo from the gallery*, pick any photo. If it judges, `C-0` is fully
-closed; if it throws, the message lands in the HUD.
+**Current demo phase:** `C-0` — capture quality · **DONE and fully verified on the Nord 4.**
+**Status:** all nine gates green (80 TS tests, 34 pytest). Nothing red, nothing pending.
 
-**Next phase to actually start:** back to **`D-3`** — it is now unblocked. Photograph ten
-packets with the stock camera app, then feed each in with *Use a photo from the gallery*
-and hit **Record**. `mobile/field-trial/README.md` has the flow and the `source` table.
+**The upload path is verified end to end.** Picker → pick → judge → verdict, with the
+stats line reading `uploaded photo · capture n/a · 20 lines · OCR 692 ms · extract 3 ms ·
+evaluate 0 ms`. **`capture n/a`, not `0`** — the `captureMs: null` decision (P4) is holding
+on the device, not just in the type system. This was the last open item on `C-0`.
+
+**It was unverified because it was untappable — a real defect, now fixed.** `ScanScreen`'s
+control block was anchored with a bare `bottom: 36` and no navigation-bar inset. The Nord 4
+runs at density 480, so Android's three-button bar owns the lowest 144 px; the gallery
+Pressable spanned y 2067–2162 and its lower third sat *inside* that region. A tap aimed at
+*Use a photo from the gallery* reached **HOME**. `VerdictScreen` had reserved the inset all
+along — the constant was private to the file that got it right, so the second screen was
+missed. `NAV_BAR_INSET` now lives in `mobile/src/ui/layout.ts`, both screens import it, and
+`mobile/src/ui/layout.test.ts` fails the build if any `bottom:` offset in `mobile/src` omits
+it. **The guard was confirmed to fail on the old value before being kept.**
+
+**Next phase to actually start:** **`D-3`** — 2/10 packets recorded, and the flow now works.
+Photograph the remaining packets with the stock camera app, then feed each in with *Use a
+photo from the gallery* and hit **Record**. `mobile/field-trial/README.md` has the flow and
+the `source` table.
 
 Then `A-0` (measure it) and `A-4` (spatial association). **Nothing is blocked on anyone.**
+
+**Driving the scan screen over ADB — read this before automating the phone again.**
+- `uiautomator dump` **fails on the scan screen** with `ERROR: could not get idle state` —
+  the live loop never lets the UI go idle. It works on the verdict screen and on the photo
+  picker (both idle). On the scan screen, screenshot and compute coordinates instead.
+- When the dump *does* work it is authoritative and worth the round trip: it gave
+  `[239,2061][841,2162]` for the upload control against a screenshot estimate that was
+  30 px off and cost several stray captures.
+- **Send one tap, then look.** Batching `tap; sleep; tap` in a single command repeatedly
+  produced the wrong thing — a tap meant for *Scan again* on the verdict screen also
+  reached the newly mounted scan screen's controls, and later taps dismissed the picker
+  before a screenshot could see it. This is the same re-render hazard already recorded,
+  but the failure mode is *misrouting*, not only dropping.
+- **The app restores a verdict on relaunch.** A fresh launch landing on a verdict screen is
+  normal and is not evidence that a capture just ran.
+
+**A second real packet's declarations panel is already in the gallery** — a tight, legible
+shot with `NET QUANTITY 150 g`, `DATE OF MANUFACTURE 15JUL.2026`, `BATCH NO. 28085`,
+`USE BY 14JAN.2027`, `₹65.00`, `(Inclusive of all taxes)`. It was uploaded and judged this
+session but **deliberately not recorded** — recording reds the suite until a person writes
+its `expect` block, which is the user's call. It is packet 3 of 10 and it is ready to go.
 
 **What `C-0` measured, and it is the phase's whole result.** Same packet, same scene,
 seconds apart on the Nord 4 (Bhujialalji Navratna Mix, packet 3):
@@ -66,7 +98,7 @@ capture still located 2 of 6 declarations and **both were wrong** — `manufactu
 `15JUL.2026` sat legibly in the frame, unfound. Recognition is no longer the bottleneck;
 association is. `A-4` is now backed by evidence rather than argument.
 
-**All nine gates are green** (78 TS tests, 34 pytest). The next packet recorded will red
+**All nine gates are green** (80 TS tests, 34 pytest). The next packet recorded will red
 the suite until somebody writes its `expect` block — the mechanism working, not a breakage.
 
 ### The corpus and how it works
@@ -185,7 +217,7 @@ Demo phases, in priority order. After each one there is still a demo you could g
 - [x] `D-1` Shell on the phone — one still capture reaches ML Kit and prints text
 - [x] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
 - [>] `D-3` Field trial — 2/10 packets recorded; **unblocked by `C-0`** — collect via gallery upload ← **resume here**
-- [x] `C-0` Capture quality — full-quality still, image upload, preview → viewfinder · upload path unverified on device
+- [x] `C-0` Capture quality — full-quality still, image upload, preview → viewfinder · **fully verified on device**
 - [ ] `A-0` Make accuracy measurable — `OCRProvider`, per-provider corpus · *no device*
 - [ ] `A-4` Spatial anchor-value association (`T-2.3` pulled forward) · *no device* — **biggest remaining accuracy win**
 - [ ] `D-4` Honest degradation **+ frame admission** — refuse a bad frame before OCR runs (`T-2.7` half pulled forward)
@@ -221,13 +253,10 @@ Setup on a fresh clone: `npm install` and `python -m pip install -r requirements
   `T-1.11`, but it is off the critical path.
 - **Keep the Nord 4 connected.** `D-3`…`D-5` all need it. Device name `CPH2661`,
   serial `bac3856a`, camera permission already granted to `com.sih26034.lmscan`.
-- **Confirm the upload path works** — one tap: open the app, *Use a photo from the
-  gallery*, pick anything. It was built and bundled but never opened on the device. That is
-  the only thing standing between `C-0` and fully closed.
-- **The Bhujialalji Navratna Mix packet was captured this session but deliberately not
-  recorded.** The framing was poor (whole packet in shot, declarations panel small) and a
-  record reds the suite until a person writes its `expect` block — the user's call. **It is
-  packet 3 of 10; photograph the panel properly and upload it.**
+- **Packet 3 (Bhujialalji Navratna Mix) is photographed, framed well and already in the
+  gallery** — see **Now**. It has been uploaded and judged but not recorded, because a
+  record reds the suite until a person writes its `expect` block. **Decide whether to record
+  it**; nothing else is needed to.
 - **Eight more packets for `D-3`, and this is now cheap.** Photograph them with the stock
   camera app 15–20 cm from the panel, then feed each in via the gallery and hit Record.
   LMPC covers *any* packaged commodity — toothpaste, soap, shampoo, tea, salt, atta, oil,
@@ -329,6 +358,13 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-10` **Live preview is a viewfinder, not a verdict source.** It keeps its tracking boxes (beat 2 depends on them) and its job becomes framing feedback, which is where `T-2.7`'s coach hints will live. The judged frame comes from a full-quality capture or an uploaded photo.
 - `2026-09-10` **Image upload is how `D-3` gets unblocked.** Ten packets photographed with the stock camera app in five minutes beats ten held in front of a live scan. The field-trial recorder must accept an uploaded image exactly as it accepts a frozen frame. It is also `T-2.8`'s 400-image gold-set entry point, built early rather than extra.
 - `2026-09-10` **Field-trial records' `extracted`/`verdict` blocks are never updated to match fixed code.** They are the log of what the device did at record time. Only the hand-written `expect` block is normative, and only it is read by the suite.
+- `2026-09-10` **`C-0` is fully closed — the upload path is verified on the Nord 4.** Stats line read `uploaded photo · capture n/a · 20 lines · OCR 692 ms`. `capture n/a` rather than `0` confirms the `captureMs: null` decision (P4) survives to the screen, not just the type.
+- `2026-09-10` **The upload control was untappable, and that is why it was never verified.** `ScanScreen`'s bottom-anchored `controls` used a bare `bottom: 36` with no navigation-bar inset, so on the Nord 4 (density 480, 144 px three-button bar) the gallery Pressable's lower third lay inside the bar's touch region and a tap on it reached HOME. Not a test-harness artefact — a finger would have done the same.
+- `2026-09-10` **`NAV_BAR_INSET` moved to `mobile/src/ui/layout.ts` and both screens import it.** It was declared privately inside `VerdictScreen`, which is exactly how `ScanScreen` came to be missed. A shared chrome constant is the structural fix; `src/ui/` is the home for screen chrome, since `src/scan/` is the extraction domain layer and this is not domain.
+- `2026-09-10` **`mobile/src/ui/layout.test.ts` fails the build if any `bottom:` offset under `mobile/src` omits `NAV_BAR_INSET`** (bare `bottom: 0` is allowed as a deliberate flush edge). Confirmed to fail on the pre-fix value before being kept — a guard that cannot fail is not a guard.
+- `2026-09-10` **`uiautomator dump` cannot read the scan screen** (`ERROR: could not get idle state`) — the live loop keeps the UI perpetually non-idle. It works on the verdict screen and the photo picker. Screenshot-and-compute is the only option on the scan screen, and it is worth reaching for a dump wherever the UI does settle: the dump's bounds beat a screenshot estimate that was 30 px off.
+- `2026-09-10` **Drive the phone one tap at a time, then look.** The recorded hazard was taps being *dropped*; this session showed they are also *misrouted* — a single tap aimed at *Scan again* also reached the freshly mounted scan screen's controls, and batched follow-up taps dismissed the photo picker before any screenshot saw it. Never batch `tap; sleep; tap` in one command.
+- `2026-09-10` **The app restores a judged verdict on relaunch.** A cold launch landing on the verdict screen is normal; it is not evidence that a capture just ran, and it misled this session for several rounds.
 
 ---
 
@@ -346,6 +382,12 @@ Append-only. One line each. Never re-litigate a line that is already here.
 ## Parked
 
 Noticed but deliberately out of scope for now. Do not action without asking.
+
+- **No screen chrome is exercised on a device by any test.** `layout.test.ts` now guards the
+  one constant that bit us, but it reads source text — it cannot know that a control is
+  reachable by a finger. The upload button shipped, built, bundled and autolinked, and was
+  still unusable. Anything bottom- or edge-anchored added from here needs one real tap on
+  the Nord 4 before it is called done.
 
 - `docs/ARCHITECTURE.md` is listed in plan §18 but no task on the board creates it.
   Assign it before Sprint 6. (`docs/DEMO_SCRIPT.md`, the other half of this item, is now
@@ -388,7 +430,11 @@ Noticed but deliberately out of scope for now. Do not action without asking.
   `product may differ` would match `product` as a *whole word* and still be taken, since
   the field's `anchor_remainder_is_value` gives it whatever follows. That is a lexicon
   question (is `product` too generic an anchor for `commodity_name`?), not a matching bug,
-  and one packet does not settle it. Watch for it as packets 3–10 arrive.
+  and one packet does not settle it. **It has now been seen: packet 3 extracted
+  `commodity_name: "nmay differ."` from "actual product may differ", twice, on two separate
+  frames. That is two packets, not one — but it is still a lexicon question (is `product`
+  too generic an anchor for `commodity_name`?) and it belongs to `A-4`/the lexicon pass, not
+  to a matching fix. Do not patch it in isolation.**
 
 ---
 
