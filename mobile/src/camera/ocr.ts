@@ -12,6 +12,7 @@ import TextRecognition, {
 } from '@react-native-ml-kit/text-recognition';
 
 import type { Box, OcrFrame, OcrLine } from '../scan/types';
+import { resolveCoordinateFrame } from './projection';
 
 /**
  * Latin only, for now.
@@ -65,7 +66,22 @@ export function toOcrFrame(
       lines.push({ text: line.text, box: toBox(line.frame) });
     }
   }
-  return { lines, imageWidth, imageHeight, ocrMs };
+
+  // The dimensions the caller reported describe the *file*; the boxes may be expressed in
+  // its transpose, because ML Kit honours the EXIF orientation that `skipProcessing` left
+  // on it. Which one is true is decided by measuring the boxes, not by assuming.
+  const { size, transposed } = resolveCoordinateFrame(
+    lines.flatMap((line) => (line.box ? [line.box] : [])),
+    { width: imageWidth, height: imageHeight },
+  );
+
+  return {
+    lines,
+    imageWidth: size.width,
+    imageHeight: size.height,
+    coordinatesTransposed: transposed,
+    ocrMs,
+  };
 }
 
 /**

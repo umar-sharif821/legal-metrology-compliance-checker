@@ -9,7 +9,13 @@ import { evaluate } from './evaluate';
 
 function scan(texts: readonly string[]) {
   const lines = fx.linesFrom(texts);
-  const frame: OcrFrame = { lines, imageWidth: 1080, imageHeight: 1920, ocrMs: 0 };
+  const frame: OcrFrame = {
+    lines,
+    imageWidth: 1080,
+    imageHeight: 1920,
+    coordinatesTransposed: false,
+    ocrMs: 0,
+  };
   const verdict = evaluate(DEMO_PACK, frame, extract(DEMO_PACK, lines));
   return { verdict, ids: verdict.findings.map((f) => f.declarationId) };
 }

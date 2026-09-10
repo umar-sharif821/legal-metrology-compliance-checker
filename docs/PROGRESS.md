@@ -3,7 +3,7 @@
 > Single source of truth for project state. Updated by `/handoff`, read by `/pickup`.
 > Keep it terse. This file is read in full every session — every line costs tokens.
 
-**Last updated:** 2026-09-10 · **Sessions completed:** 4 · **Current sprint:** 1 (paused for the demo detour)
+**Last updated:** 2026-09-10 · **Sessions completed:** 5 · **Current sprint:** 1 (paused for the demo detour)
 
 ---
 
@@ -15,33 +15,55 @@
 > throwaway scaffolding and must never be promoted into `packages/rule-engine-ts` or
 > `rulepack/*.json`.
 
-**Current demo phase:** `D-2` — the core loop (live OCR, freeze, verdict screen with citations)
+**Current demo phase:** `D-3` — field trial (tune lexicons/shapes in JSON against ten real packets)
 **Status:** not started
 **Blocked on:** nothing.
 
-`D-1` is done and verified on the real device. ML Kit's native binding works under the
-New Architecture — the last unproven assumption in the stack is now proven, and route B
-(`@infinitered/...`) stays in reserve, unused.
+`D-2` is done and verified on the Nord 4 against a real snack packet (Bhujialalji Navratna
+Mix). The loop runs at ~1 pass/s, the overlay tracks the label, Freeze produces a verdict
+with citations, and `INSUFFICIENT_EVIDENCE` fires on a bad capture. Measured this session:
 
-Measured on the Nord 4, scanning a real snack packet:
+| stage | Nord 4 (Snapdragon 7+ Gen 3) |
+|---|---|
+| capture | 310–350 ms |
+| OCR (41–71 lines) | 360–860 ms |
+| extract + evaluate | sub-millisecond, both pure |
 
-| framing | capture | OCR | lines |
-|---|---|---|---|
-| whole pack | 380 ms | 662 ms | 63 |
-| label panel | 370 ms | 455 ms | 34 |
+**Freeze takes no picture.** It keeps the last completed pass, already recognised — so the
+verdict is instant and the frame on screen is provably the frame it came from (P7).
 
-The label-panel capture read `NET QUANTITY`, `150 g`, `DATE OF MANUFACTURE:` — the
-mandatory declarations do come through at arm's length.
+Two device-only bugs were found and fixed here; both are recorded in the decisions log and
+neither is guessable from the code:
+
+1. ML Kit's coordinates are **not** in the frame expo-camera reports. `resolveCoordinateFrame`
+   now measures which frame applies. This supersedes the D-1 note that no transposition
+   was needed.
+2. The loop **stalled dead at pass ~69** — `takePictureAsync` stopped settling, silently,
+   behind a live preview. `PASS_TIMEOUT_MS` plus a camera remount on restart now cover it.
+
+**What D-2 did not prove:** the evidence *highlight* has never been seen firing. On every
+packet scanned so far each finding was an *absence*, which has no region to point at and
+correctly renders "Nothing to highlight". Beat 5's visual needs a declaration that is
+present but defective (an MRP without "inclusive of all taxes", a net quantity without a
+unit). Find one in `D-3`; the overlay itself is proven exact, since the same code draws the
+line boxes pixel-accurately on the frozen frame.
 
 Rebuild and run with `cd mobile && npx expo run:android --device CPH2661`. **The device
 name is `CPH2661`, not the adb serial** — `expo run:android --device <serial>` fails with
-`Could not find device with name`. Incremental Gradle is ~52 s; the JS bundle ~9 s.
+`Could not find device with name`. Incremental Gradle is ~24 s; the JS bundle ~9 s. JS
+edits reload over Metro with no rebuild.
+
+Driving the phone from a session: `adb exec-out screencap -p > shot.png` then read it, and
+`adb shell input tap X Y`. Get real hit boxes from
+`adb shell uiautomator dump /sdcard/ui.xml` (prefix the command with `MSYS_NO_PATHCONV=1`
+in Git Bash, or the `/sdcard` path is mangled into a Windows path). Guessing tap
+coordinates off a screenshot is unreliable — a tap that lands during a re-render is dropped.
 
 Demo phases, in priority order. After each one there is still a demo you could give.
 
 - [x] `D-0` Foundations — scaffold, Gradle build green, rule pack, evaluator, unit tests · *no device*
 - [x] `D-1` Shell on the phone — one still capture reaches ML Kit and prints text
-- [ ] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
+- [x] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
 - [ ] `D-3` Field trial — tune lexicons/shapes in JSON against ten real packets
 - [ ] `D-4` Honest degradation — insufficient evidence, coach hints, aeroplane mode
 - [ ] `D-5` Polish and rehearsal — icon, standalone APK, `docs/DEMO_SCRIPT.md`, two run-throughs
@@ -70,8 +92,11 @@ Nine gates now run green: `npm run format:check`, `npm run lint`, `npm run typec
 Setup on a fresh clone: `npm install` and `python -m pip install -r requirements-dev.txt`.
 
 **Needed from user:**
-- **Keep the Nord 4 connected.** `D-2`…`D-5` all need it. Device name `CPH2661`,
+- **Keep the Nord 4 connected.** `D-3`…`D-5` all need it. Device name `CPH2661`,
   serial `bac3856a`, camera permission already granted to `com.sih26034.lmscan`.
+- **Ten real packets for `D-3`.** At least one must have a declaration that is *present
+  but defective* — an MRP with no "inclusive of all taxes", or a net quantity with no unit
+  — otherwise the evidence highlight (demo beat 5) still cannot be shown.
 - A Legal Metrology officer / law student contact for the rule-pack review (plan §4,
   needed before Sprint 6, ideally started in Sprint 1). **Not yet asked.**
 - Docker is not installed on this machine (`docker --version` fails). `T-1.11` needs
@@ -120,6 +145,14 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-10` ML Kit box coordinates arrive in the **capture's own pixel frame** — no transposition needed (measured: extent 4083×3070 against a 4096×3072 capture). `D-2`'s overlay still needs (a) a **clamp**, since an axis-aligned box around a tilted line can overhang the edge (one capture reported bottom 3086 against height 3072), and (b) a **rotation**, since the capture is landscape while the preview is portrait.
 - `2026-09-10` Android 15+ forces edge-to-edge, so the app's top banner takes its inset from `StatusBar.currentHeight` (plain JS). `react-native-safe-area-context` was rejected: a native dependency costing a full Gradle rebuild mid-demo for one number the platform already exposes. RN's own `SafeAreaView` is deprecated and warns.
 - `2026-09-10` Correction to the `D-0` note below: `mobile/` is **ESLint**-ignored only. Prettier ignores just `mobile/android/` and `mobile/.expo/`, so **mobile sources are format-gated** by `npm run format:check`. D-0's files passed by luck. Run `npx prettier --write` on new mobile files before committing.
+- `2026-09-10` **`D-2` done and verified on the Nord 4.** Live loop, overlay, freeze, verdict screen with citations, `INSUFFICIENT_EVIDENCE`. All nine gates green.
+- `2026-09-10` **Correction to the D-1 geometry note: ML Kit's coordinates are NOT in the frame expo-camera reports.** Measured extent 2650×3505 against a reported 4096×3072 — a box cannot be taller than its own image. `skipProcessing` returns the sensor's landscape buffer with an EXIF tag; ML Kit honours the tag and reports in the upright frame. `resolveCoordinateFrame` in `projection.ts` now *measures* which frame applies (2% tolerance, so a tilted line's overhang is not mistaken for a transposition) and `OcrFrame.coordinatesTransposed` says so on screen. D-1's reading came from a capture whose extent happened to fit both frames.
+- `2026-09-10` **No quarter-turn is ever applied on this route.** `<Image>`, the camera preview and ML Kit all present the EXIF-upright frame, so the frame only needed *transposing*; rotating as well was D-2's one real bug. `rotateBox`/`rotatedSize` are kept, unused, for `T-1.12`'s frame processor, which gets raw buffers with no EXIF to honour.
+- `2026-09-10` **Freeze takes no picture.** It reuses the last completed pass. The verdict is then instant (only `extract` + `evaluate`, both pure) and the frame shown is provably the frame cited (P7).
+- `2026-09-10` **The scan loop stalls dead at ~pass 69** — `takePictureAsync` stops settling, no error, preview still at 25 fps, counter frozen. That is ~1 minute of scanning, so it lands mid-demo. Fixed by `PASS_TIMEOUT_MS` (6 s, ~7× a healthy pass) on both capture and OCR, and by `Restart scanning` remounting the `CameraView` via a `key` — restarting the loop alone does nothing, the loop is not what is stuck. Root cause not established; treat a stall as expected, not as a one-off.
+- `2026-09-10` `expo-file-system` added as a **direct** dependency of `mobile/`. It was already autolinked as a transitive dep of `expo`, so this is a JS-resolution change only — no Gradle rebuild. Used to delete each replaced capture; without it a live loop leaves hundreds of MB of full-resolution JPEGs in the cache during a rehearsal.
+- `2026-09-10` Sub-clause letters are concatenated raw from the pack (`Rule 6` + `(1)(d)`), never re-bracketed — the pack already writes its own punctuation, and wrapping produced `Rule 6((1)(d))` on the device (P6).
+- `2026-09-10` Bottom-anchored controls reserve `NAV_BAR_INSET = 48` for Android's navigation bar. Same reasoning as the top banner's `StatusBar.currentHeight`: edge-to-edge is forced, the platform exposes no bottom equivalent to JS, and `react-native-safe-area-context` stays rejected.
 
 ---
 
@@ -157,6 +190,16 @@ Noticed but deliberately out of scope for now. Do not action without asking.
   attribution is worse than none.
 - `rulepack/CHANGELOG.md` is in the plan §18 layout ("every clause change, dated, with
   reviewer") but no task creates it. Fold it into `T-1.3`, which writes the first pack.
+- **The frozen frame sometimes renders sideways.** With `skipProcessing` the EXIF
+  orientation varies with how the phone was tilted at the shutter, so one capture displays
+  upright and the next lies on its side. **The boxes are correct either way** — `<Image>`
+  and ML Kit honour the same tag, so they never disagree with each other. Cosmetic only;
+  fix in `D-5` polish, or drop `skipProcessing` in `D-3` and pay the rotate-and-rescale
+  latency. Do not "fix" it by rotating the overlay — that reintroduces the bug D-2 removed.
+- **`commodity_name` extracted `"may differ."` at `A_anchored_inline` / `high`** from
+  "The picture is for representation purpose only, actual product may differ." A confident
+  wrong value is precisely what P3 is about. This is `D-3`'s job — tune the lexicon/shape
+  in the JSON, and only after seeing several packets, not this one.
 
 ---
 

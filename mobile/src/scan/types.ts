@@ -24,9 +24,18 @@ export interface OcrLine {
 
 export interface OcrFrame {
   readonly lines: readonly OcrLine[];
-  /** Pixel dimensions of the image the boxes are relative to. */
+  /**
+   * Pixel dimensions of the frame the boxes are relative to.
+   *
+   * Not necessarily the dimensions of the file that was captured. The OCR engine reads
+   * the file's EXIF orientation and reports coordinates in the upright frame, which for a
+   * portrait-held phone is the transpose of the sensor's landscape buffer. This is the
+   * frame that was *measured* from the boxes themselves, not the one the camera reported.
+   */
   readonly imageWidth: number;
   readonly imageHeight: number;
+  /** True when the two disagreed and the reported dimensions had to be transposed (P9). */
+  readonly coordinatesTransposed: boolean;
   /** Wall-clock milliseconds the OCR call took, for the latency claims (P8). */
   readonly ocrMs: number;
 }
