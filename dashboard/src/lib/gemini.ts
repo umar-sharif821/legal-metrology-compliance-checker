@@ -37,19 +37,27 @@ const MAX_EDGE = 1600;
 const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta';
 
 /**
- * The models to try, best first.
+ * Model preference, newest first.
  *
- * Resolved against the account's own model list rather than assumed, because model
- * availability changes and a hard-coded name that 404s during a demonstration is a
- * failure with no diagnosis attached.
+ * This list is only an ordering hint. The real mechanism is that every candidate is
+ * TRIED, in order, until one answers — because a hard-coded name is a liability. Google
+ * retires models for new accounts while still returning them from the model list:
+ * `gemini-2.5-flash` appeared as available and then answered a real call with "no longer
+ * available to new users, please use models/gemini-3.6-flash". Picking one name and
+ * giving up turns that into a dead demonstration with no route forward.
  */
-const PREFERRED = ['gemini-2.5-flash', 'gemini-2.0-flash', 'gemini-1.5-flash'];
+const PREFERRED = [
+  'gemini-3.6-flash',
+  'gemini-3-flash',
+  'gemini-2.5-flash',
+  'gemini-2.0-flash',
+  'gemini-1.5-flash',
+];
 
 let resolvedModel: string | null = null;
 
-async function pickModel(key: string): Promise<string> {
-  if (resolvedModel) return resolvedModel;
-
+/** Rank the account's usable models: preferred names first, then any other flash model. */
+async function candidateModels(key: string): Promise<string[]> {
   const res = await fetch(`${API_ROOT}/models?key=${encodeURIComponent(key)}`);
   if (!res.ok) {
     throw new Error(
@@ -58,23 +66,29 @@ async function pickModel(key: string): Promise<string> {
         : `Could not reach Google (HTTP ${res.status}).`,
     );
   }
-  const body = (await res.json()) as {
+  const listed = (await res.json()) as {
     models?: { name?: string; supportedGenerationMethods?: string[] }[];
   };
 
-  const usable = (body.models ?? [])
+  const usable = (listed.models ?? [])
     .filter((m) => (m.supportedGenerationMethods ?? []).includes('generateContent'))
     .map((m) => (m.name ?? '').replace(/^models\//, ''))
     .filter(Boolean);
 
-  const chosen =
-    PREFERRED.find((p) => usable.includes(p)) ??
-    usable.find((m) => m.includes('flash') && !m.includes('thinking')) ??
-    usable[0];
+  const preferred = PREFERRED.filter((p) => usable.includes(p));
+  const otherFlash = usable.filter(
+    (m) => m.includes('flash') && !m.includes('thinking') && !preferred.includes(m),
+  );
+  const rest = usable.filter((m) => !preferred.includes(m) && !otherFlash.includes(m));
 
-  if (!chosen) throw new Error('That key has no models available for image reading.');
-  resolvedModel = chosen;
-  return chosen;
+  const ranked = [...preferred, ...otherFlash, ...rest];
+  if (ranked.length === 0) throw new Error('That key has no models available for image reading.');
+  return ranked;
+}
+
+/** True when a failure means "try the next model" rather than "stop and report". */
+function isModelUnavailable(status: number, detail: string): boolean {
+  return status === 404 || /not (?:found|available)|no longer available|unsupported/i.test(detail);
 }
 
 /**
@@ -147,41 +161,55 @@ export async function recogniseGemini(
   const { img, revoke } = await loadImageElement(file);
   try {
     const { canvas, width, height } = renderTo(img, MAX_EDGE);
-    const model = await pickModel(trimmed);
-
-    const startedAt = performance.now();
-    const res = await fetch(
-      `${API_ROOT}/models/${model}:generateContent?key=${encodeURIComponent(trimmed)}`,
-      {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          contents: [
-            {
-              parts: [
-                { text: PROMPT },
-                { inline_data: { mime_type: 'image/jpeg', data: canvasBase64(canvas) } },
-              ],
-            },
+    const request = JSON.stringify({
+      contents: [
+        {
+          parts: [
+            { text: PROMPT },
+            { inline_data: { mime_type: 'image/jpeg', data: canvasBase64(canvas) } },
           ],
-          generationConfig: {
-            // Zero temperature: transcription is not a creative task, and a demonstration
-            // that reads the same packet differently twice is worse than one that reads
-            // it imperfectly the same way twice.
-            temperature: 0,
-            responseMimeType: 'application/json',
-            responseSchema: SCHEMA,
-          },
-        }),
+        },
+      ],
+      generationConfig: {
+        // Zero temperature: transcription is not a creative task, and a demonstration
+        // that reads the same packet differently twice is worse than one that reads it
+        // imperfectly the same way twice.
+        temperature: 0,
+        responseMimeType: 'application/json',
+        responseSchema: SCHEMA,
       },
-    );
+    });
 
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
+    // Try each model in turn. A retired model is a reason to move on, not to fail.
+    const models = resolvedModel ? [resolvedModel] : await candidateModels(trimmed);
+    const startedAt = performance.now();
+    let res: Response | null = null;
+    let lastDetail = '';
+
+    for (const model of models) {
+      const attempt = await fetch(
+        `${API_ROOT}/models/${model}:generateContent?key=${encodeURIComponent(trimmed)}`,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: request },
+      );
+      if (attempt.ok) {
+        resolvedModel = model;
+        res = attempt;
+        break;
+      }
+      lastDetail = await attempt.text().catch(() => '');
+      if (attempt.status === 429) {
+        throw new Error('Google rate-limited the request. Wait a moment and try again.');
+      }
+      if (!isModelUnavailable(attempt.status, lastDetail)) {
+        throw new Error(`Google returned HTTP ${attempt.status}. ${lastDetail.slice(0, 200)}`);
+      }
+      // Retired, or not available to this account. Fall through to the next candidate.
+      resolvedModel = null;
+    }
+
+    if (!res) {
       throw new Error(
-        res.status === 429
-          ? 'Google rate-limited the request. Wait a moment and try again.'
-          : `Google returned HTTP ${res.status}. ${detail.slice(0, 200)}`,
+        `No model this key can use accepted the request. Last response: ${lastDetail.slice(0, 200)}`,
       );
     }
 
