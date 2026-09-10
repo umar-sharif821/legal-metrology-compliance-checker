@@ -102,7 +102,9 @@ function openPrintableNotice(scan: Scan): void {
       const alt = d.clause.alternates.map((a) => a.sub_clause).join(' or ');
       return `<tr>
         <td class="cite">${esc(d.clause.cite)}${
-          d.clause.contested ? `<div class="contested">letter contested — also read as ${esc(alt)}</div>` : ''
+          d.clause.contested
+            ? `<div class="contested">letter contested — also read as ${esc(alt)}</div>`
+            : ''
         }</td>
         <td>
           <div class="t">${esc(d.title)}</div>

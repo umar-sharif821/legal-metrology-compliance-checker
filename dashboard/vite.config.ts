@@ -11,7 +11,9 @@ import tailwindcss from '@tailwindcss/vite';
 // scaffolding (docs/DEMO_PLAN.md). `T-4.4` repoints this alias at
 // `rulepack/lmpc-2011.json` and nothing else in `src/` changes — every consumer
 // goes through `src/lib/rulepack.ts`.
-const rulepack = fileURLToPath(new URL('../mobile/src/rulepack/demo-lmpc-v0.json', import.meta.url));
+const rulepack = fileURLToPath(
+  new URL('../mobile/src/rulepack/demo-lmpc-v0.json', import.meta.url),
+);
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
 export default defineConfig({

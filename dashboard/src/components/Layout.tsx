@@ -162,8 +162,8 @@ export function Layout({ children }: { children: ReactNode }) {
               <IconShield width={14} height={14} className="mt-px shrink-0" />
               <p>
                 <b className="font-semibold">Advisory only.</b> The active rule pack is{' '}
-                {PACK.provenanceStatus.replace(/_/g, ' ').toLowerCase()} — every finding is capped at{' '}
-                <b className="font-semibold">advisory</b> and none may be presented as a
+                {PACK.provenanceStatus.replace(/_/g, ' ').toLowerCase()} — every finding is capped
+                at <b className="font-semibold">advisory</b> and none may be presented as a
                 determination of law.
               </p>
             </div>
@@ -173,8 +173,8 @@ export function Layout({ children }: { children: ReactNode }) {
         <main className="flex-1 px-4 py-6 sm:px-6 lg:py-8">{children}</main>
 
         <footer className="border-t border-line-200 px-4 py-4 text-[11px] text-ink-400 sm:px-6">
-          SIH26034 · {PACK.statuteCode} · rule pack {PACK.id} v{PACK.version} ·{' '}
-          {PACK.jurisdiction} — findings require confirmation by a Legal Metrology officer.
+          SIH26034 · {PACK.statuteCode} · rule pack {PACK.id} v{PACK.version} · {PACK.jurisdiction}{' '}
+          — findings require confirmation by a Legal Metrology officer.
         </footer>
       </div>
     </div>

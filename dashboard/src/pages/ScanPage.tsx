@@ -26,7 +26,11 @@ const STAGES = [
   { id: 'admit', label: 'Admitting the frame', detail: 'Print size, panel coverage, cropping' },
   { id: 'ocr', label: 'Reading text', detail: 'On-device text recognition' },
   { id: 'extract', label: 'Extracting declarations', detail: 'Anchors, then geometry' },
-  { id: 'evaluate', label: 'Evaluating the rule pack', detail: 'Deterministic — no learned parameters' },
+  {
+    id: 'evaluate',
+    label: 'Evaluating the rule pack',
+    detail: 'Deterministic — no learned parameters',
+  },
 ] as const;
 
 const MAX_BYTES = 12 * 1024 * 1024;
@@ -111,11 +115,15 @@ export function ScanPage() {
     canvas.width = v.videoWidth;
     canvas.height = v.videoHeight;
     canvas.getContext('2d')?.drawImage(v, 0, 0);
-    canvas.toBlob((blob) => {
-      if (!blob) return;
-      accept(new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' }));
-      stopCamera();
-    }, 'image/jpeg', 0.92);
+    canvas.toBlob(
+      (blob) => {
+        if (!blob) return;
+        accept(new File([blob], `capture-${Date.now()}.jpg`, { type: 'image/jpeg' }));
+        stopCamera();
+      },
+      'image/jpeg',
+      0.92,
+    );
   }, [accept, stopCamera]);
 
   const analyse = useCallback(async () => {
@@ -187,7 +195,11 @@ export function ScanPage() {
             </div>
           ) : preview ? (
             <div className="overflow-hidden rounded-xl border border-line-200">
-              <img src={preview} alt="Selected label" className="block max-h-[380px] w-full object-contain bg-canvas" />
+              <img
+                src={preview}
+                alt="Selected label"
+                className="block max-h-[380px] w-full object-contain bg-canvas"
+              />
               <div className="flex items-center gap-2 border-t border-line-200 p-3">
                 <p className="min-w-0 flex-1 truncate text-[12px] text-ink-500">
                   {file?.name} · {((file?.size ?? 0) / 1024).toFixed(0)} KB
@@ -262,13 +274,22 @@ export function ScanPage() {
           />
 
           {error && (
-            <Note tone="violation" icon={<IconAlert width={15} height={15} className="mt-px shrink-0" />} className="mt-4">
+            <Note
+              tone="violation"
+              icon={<IconAlert width={15} height={15} className="mt-px shrink-0" />}
+              className="mt-4"
+            >
               {error}
             </Note>
           )}
 
           <div className="mt-4 flex items-center gap-3">
-            <Button size="lg" onClick={() => void analyse()} disabled={!file || busy} className="flex-1">
+            <Button
+              size="lg"
+              onClick={() => void analyse()}
+              disabled={!file || busy}
+              className="flex-1"
+            >
               {busy ? (
                 <>
                   <IconSpinner width={17} height={17} />
@@ -331,7 +352,10 @@ export function ScanPage() {
           </ol>
           {busy && (
             <div className="relative h-0.5 overflow-hidden bg-line-200">
-              <div className="absolute inset-y-0 w-1/3 bg-navy-600" style={{ animation: 'sweep 1.4s ease-in-out infinite alternate' }} />
+              <div
+                className="absolute inset-y-0 w-1/3 bg-navy-600"
+                style={{ animation: 'sweep 1.4s ease-in-out infinite alternate' }}
+              />
             </div>
           )}
         </Card>
@@ -359,7 +383,10 @@ export function ScanPage() {
             </li>
           </ul>
           <div className="px-5 pb-5">
-            <Note tone="advisory" icon={<IconAlert width={15} height={15} className="mt-px shrink-0" />}>
+            <Note
+              tone="advisory"
+              icon={<IconAlert width={15} height={15} className="mt-px shrink-0" />}
+            >
               <b className="font-semibold">
                 Sharpness is not checked — {FRAME_ADMISSION.unscored.join(' and ')} are unmeasured.
               </b>{' '}
@@ -370,9 +397,7 @@ export function ScanPage() {
           </div>
         </Card>
 
-        <Note tone="unknown">
-          {PACK.scopeNote}
-        </Note>
+        <Note tone="unknown">{PACK.scopeNote}</Note>
       </div>
     </div>
   );

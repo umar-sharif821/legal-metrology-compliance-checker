@@ -92,9 +92,24 @@ export function Sparkline({
     <div ref={ref} style={{ height }} className="w-full">
       {w > 0 && n > 1 && (
         <svg width={w} height={height} aria-hidden>
-          <path d={path} fill="none" stroke={stroke} strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" opacity={0.55} />
+          <path
+            d={path}
+            fill="none"
+            stroke={stroke}
+            strokeWidth={2}
+            strokeLinejoin="round"
+            strokeLinecap="round"
+            opacity={0.55}
+          />
           {last && (
-            <circle cx={last[0]} cy={last[1]} r={3.5} fill={stroke} stroke={SURFACE} strokeWidth={2} />
+            <circle
+              cx={last[0]}
+              cy={last[1]}
+              r={3.5}
+              fill={stroke}
+              stroke={SURFACE}
+              strokeWidth={2}
+            />
           )}
         </svg>
       )}
@@ -332,7 +347,14 @@ export function BarList({
                     />
                     {/* square off the baseline end that rx rounded */}
                     {r.value > 0 && (
-                      <rect x={0} y={0} width={4} height={14} fill={SERIES} opacity={active ? 1 : 0.85} />
+                      <rect
+                        x={0}
+                        y={0}
+                        width={4}
+                        height={14}
+                        fill={SERIES}
+                        opacity={active ? 1 : 0.85}
+                      />
                     )}
                   </svg>
                 </div>

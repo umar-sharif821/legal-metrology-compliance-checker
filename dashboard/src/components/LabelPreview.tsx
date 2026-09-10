@@ -108,11 +108,13 @@ function DrawnLabel({ scan }: { scan: Scan }) {
           <text x={26} y={382} fontSize={10.5} fill="#8a8070">
             MANUFACTURED / PACKED BY
           </text>
-          {wrap(mfr, 46).slice(0, 3).map((l, i) => (
-            <text key={i} x={26} y={400 + i * 15} fontSize={11.5} fill="#14202f">
-              {l}
-            </text>
-          ))}
+          {wrap(mfr, 46)
+            .slice(0, 3)
+            .map((l, i) => (
+              <text key={i} x={26} y={400 + i * 15} fontSize={11.5} fill="#14202f">
+                {l}
+              </text>
+            ))}
         </>
       )}
 
@@ -122,11 +124,13 @@ function DrawnLabel({ scan }: { scan: Scan }) {
             CONSUMER CARE
           </text>
           {/* Two lines, not one: on a narrow panel the single line ran off the edge. */}
-          {wrap(care, 42).slice(0, 2).map((l, i) => (
-            <text key={i} x={26} y={487 + i * 14} fontSize={11.5} fill="#14202f">
-              {l}
-            </text>
-          ))}
+          {wrap(care, 42)
+            .slice(0, 2)
+            .map((l, i) => (
+              <text key={i} x={26} y={487 + i * 14} fontSize={11.5} fill="#14202f">
+                {l}
+              </text>
+            ))}
         </>
       )}
 
@@ -155,8 +159,15 @@ export function LabelPreview({
   } as const;
 
   return (
-    <div className={`relative overflow-hidden rounded-lg border border-line-200 bg-canvas ${className}`}>
-      <svg viewBox={`0 0 ${W} ${H}`} className="block h-auto w-full" role="img" aria-label="Label evidence">
+    <div
+      className={`relative overflow-hidden rounded-lg border border-line-200 bg-canvas ${className}`}
+    >
+      <svg
+        viewBox={`0 0 ${W} ${H}`}
+        className="block h-auto w-full"
+        role="img"
+        aria-label="Label evidence"
+      >
         <defs>
           <clipPath id={clipId}>
             <rect x={0} y={0} width={W} height={H} rx={0} />
@@ -164,7 +175,14 @@ export function LabelPreview({
         </defs>
         <g clipPath={`url(#${clipId})`}>
           {scan.imageUrl ? (
-            <image href={scan.imageUrl} x={0} y={0} width={W} height={H} preserveAspectRatio="xMidYMid slice" />
+            <image
+              href={scan.imageUrl}
+              x={0}
+              y={0}
+              width={W}
+              height={H}
+              preserveAspectRatio="xMidYMid slice"
+            />
           ) : (
             <DrawnLabel scan={scan} />
           )}

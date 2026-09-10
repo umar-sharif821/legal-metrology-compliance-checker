@@ -58,6 +58,8 @@ interface StatusStyle {
   readonly label: string;
   readonly detail: string;
   readonly colour: string;
+  /** A wash of the same hue. Fill and rule together, never fill alone. */
+  readonly tint: string;
 }
 
 /**
@@ -75,18 +77,21 @@ function statusStyle(verdict: Verdict): StatusStyle {
         label: 'INSUFFICIENT EVIDENCE',
         detail: 'No verdict was reached. Findings are withheld rather than shown partially.',
         colour: '#FBBF24',
+        tint: 'rgba(251,191,36,0.10)',
       };
     case 'NO_ISSUES_FOUND':
       return {
         label: 'NO ISSUES FOUND',
         detail: `All ${verdict.counts.fieldsExpected} declarations this pack checks were located and passed. This is not a certificate of compliance.`,
         colour: '#4ADE80',
+        tint: 'rgba(74,222,128,0.10)',
       };
     case 'ATTENTION':
       return {
         label: 'NEEDS ATTENTION',
         detail: `${verdict.findings.length} of the checks this pack runs did not pass.`,
         colour: '#FB923C',
+        tint: 'rgba(251,146,60,0.10)',
       };
   }
 }
@@ -152,10 +157,16 @@ function FindingCard({
        * writes it as `(1)(d)`, and adding a pair here produced `Rule 6((1)(d))` on the
        * device. The pack's own punctuation is the citation's punctuation (P6).
        */}
-      <Text style={styles.citation}>
-        {clause.statuteCode} · Rule {clause.rule}
-        {clause.subClause} · {finding.packId} v{finding.packVersion}
-      </Text>
+      <View style={styles.citationRow}>
+        <Text style={styles.citationChip}>
+          Rule {clause.rule}
+          {clause.subClause}
+          {clause.contested ? ' *' : ''}
+        </Text>
+        <Text style={styles.citationMeta}>
+          {clause.statuteCode} · {finding.packId} v{finding.packVersion}
+        </Text>
+      </View>
 
       {clause.contested && (
         <Text style={styles.contested}>
@@ -208,8 +219,8 @@ function FrameQuality({ admission }: { admission: AdmissionResult }) {
       <Text style={styles.sectionHead}>Frame quality</Text>
       {admission.unmeasurable ? (
         <Text style={styles.frameUnmeasurable}>
-          The engine reported no text positions, so this frame&apos;s quality could not be
-          measured. That is a limit of the reading, not a judgement about the picture.
+          The engine reported no text positions, so this frame&apos;s quality could not be measured.
+          That is a limit of the reading, not a judgement about the picture.
         </Text>
       ) : (
         admission.checks.map((c) => (
@@ -229,9 +240,8 @@ function FrameQuality({ admission }: { admission: AdmissionResult }) {
       {admission.unscored.length > 0 && (
         <Text style={styles.frameUnscored}>
           Not measured: {admission.unscored.join(', ')}. This build has no access to the
-          image&apos;s pixels, so sharpness and glare are not checked at all — a frame can
-          pass every check above and still be too blurry to trust. Judge the photograph
-          yourself.
+          image&apos;s pixels, so sharpness and glare are not checked at all — a frame can pass
+          every check above and still be too blurry to trust. Judge the photograph yourself.
         </Text>
       )}
     </View>
@@ -276,7 +286,12 @@ export default function VerdictScreen({ verdict, capture, extraction, onResume }
       </View>
 
       <ScrollView style={styles.body} contentContainerStyle={styles.bodyContent}>
-        <View style={[styles.statusBar, { borderLeftColor: status.colour }]}>
+        <View
+          style={[
+            styles.statusBar,
+            { borderLeftColor: status.colour, backgroundColor: status.tint },
+          ]}
+        >
           <Text style={[styles.statusLabel, { color: status.colour }]}>{status.label}</Text>
           <Text style={styles.statusDetail}>{status.detail}</Text>
         </View>
@@ -360,17 +375,31 @@ export default function VerdictScreen({ verdict, capture, extraction, onResume }
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0B1220' },
+  root: { flex: 1, backgroundColor: '#0A1D36' },
   frame: { height: '32%', backgroundColor: '#000' },
 
   body: { flex: 1 },
   bodyContent: { padding: 14, paddingBottom: 24 },
 
-  statusBar: { borderLeftWidth: 4, paddingLeft: 12, paddingVertical: 4, marginBottom: 12 },
+  statusBar: {
+    borderLeftWidth: 4,
+    borderRadius: 10,
+    paddingLeft: 12,
+    paddingRight: 12,
+    paddingVertical: 10,
+    marginBottom: 12,
+  },
   statusLabel: { fontSize: 20, fontWeight: '800', letterSpacing: 0.5 },
   statusDetail: { color: '#CBD5E1', fontSize: 13, lineHeight: 18, marginTop: 4 },
 
-  provenance: { backgroundColor: '#111C2E', borderRadius: 8, padding: 10, marginBottom: 14 },
+  provenance: {
+    backgroundColor: '#102540',
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#1B3557',
+    padding: 11,
+    marginBottom: 14,
+  },
   provenanceLine: { color: '#7DD3FC', fontSize: 11, lineHeight: 16 },
   provenanceWarn: { color: '#FBBF24', fontSize: 11, lineHeight: 16, marginTop: 4 },
   provenanceNote: { color: '#64748B', fontSize: 10, lineHeight: 15, marginTop: 4 },
@@ -412,12 +441,12 @@ const styles = StyleSheet.create({
   chipMeta: { color: '#64748B', fontSize: 9, marginTop: 2 },
 
   finding: {
-    backgroundColor: '#111C2E',
-    borderRadius: 10,
-    padding: 12,
+    backgroundColor: '#102540',
+    borderRadius: 12,
+    padding: 13,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: 'transparent',
+    borderColor: '#1B3557',
   },
   findingSelected: { borderColor: '#FBBF24' },
   findingHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
@@ -441,7 +470,26 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   requirement: { color: '#CBD5E1', fontSize: 12, lineHeight: 18, marginTop: 6 },
-  citation: { color: '#7DD3FC', fontSize: 11, marginTop: 8, fontVariant: ['tabular-nums'] },
+  citationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginTop: 9,
+  },
+  citationChip: {
+    color: '#BAE6FD',
+    fontSize: 11,
+    fontWeight: '700',
+    borderWidth: 1,
+    borderColor: 'rgba(125,211,252,0.40)',
+    backgroundColor: 'rgba(125,211,252,0.08)',
+    borderRadius: 5,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    fontVariant: ['tabular-nums'],
+  },
+  citationMeta: { color: '#64748B', fontSize: 10, fontVariant: ['tabular-nums'] },
   contested: { color: '#FBBF24', fontSize: 10, lineHeight: 15, marginTop: 6 },
   remedy: { color: '#94A3B8', fontSize: 11, lineHeight: 17, marginTop: 8 },
   remedyKey: { color: '#F8FAFC', fontWeight: '700' },
@@ -450,7 +498,7 @@ const styles = StyleSheet.create({
     marginTop: 10,
     paddingTop: 8,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#1E293B',
+    borderTopColor: '#1B3557',
   },
   evidenceKey: { color: '#FBBF24', fontSize: 10, fontWeight: '700', letterSpacing: 0.5 },
   evidenceText: {
@@ -467,8 +515,8 @@ const styles = StyleSheet.create({
     padding: 12,
     paddingBottom: 12 + NAV_BAR_INSET,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: '#1E293B',
-    backgroundColor: '#0B1220',
+    borderTopColor: '#1B3557',
+    backgroundColor: '#0A1D36',
   },
   resume: {
     backgroundColor: '#F8FAFC',
@@ -476,5 +524,5 @@ const styles = StyleSheet.create({
     paddingVertical: 13,
     alignItems: 'center',
   },
-  resumeText: { color: '#0B1220', fontSize: 15, fontWeight: '700' },
+  resumeText: { color: '#0A1D36', fontSize: 15, fontWeight: '700' },
 });

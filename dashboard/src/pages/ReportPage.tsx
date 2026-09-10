@@ -93,10 +93,11 @@ function FrameQuality({ scan }: { scan: Scan }) {
         })}
       </ul>
       <div className="px-5 pb-5 pt-3">
-        <Note tone="advisory" icon={<IconAlert width={15} height={15} className="mt-px shrink-0" />}>
-          <b className="font-semibold">
-            Not checked: {scan.admission.unmeasured.join(', ')}.
-          </b>{' '}
+        <Note
+          tone="advisory"
+          icon={<IconAlert width={15} height={15} className="mt-px shrink-0" />}
+        >
+          <b className="font-semibold">Not checked: {scan.admission.unmeasured.join(', ')}.</b>{' '}
           These need raw pixel access this build does not have. This capture can have passed every
           check above and still be unfit to read — which is why the result is stated, not certified.
         </Note>
@@ -131,7 +132,9 @@ export function ReportPage() {
       .filter((f): f is typeof f & { box: Box } => f.box !== null)
       .map((f) => ({
         box: f.box,
-        tone: scan.findings.some((x) => DECLARATIONS_BY_ID.get(x.declarationId)?.fieldId === f.fieldId)
+        tone: scan.findings.some(
+          (x) => DECLARATIONS_BY_ID.get(x.declarationId)?.fieldId === f.fieldId,
+        )
           ? ('advisory' as const)
           : ('clear' as const),
       }));
@@ -235,7 +238,10 @@ export function ReportPage() {
           <Meta label="Officer" value={scan.officer} />
           <Meta label="District" value={scan.district} />
           <Meta label="Category" value={scan.category} />
-          <Meta label="Source" value={scan.source === 'device' ? 'Field device' : 'Uploaded image'} />
+          <Meta
+            label="Source"
+            value={scan.source === 'device' ? 'Field device' : 'Uploaded image'}
+          />
           <Meta label="Rule pack" value={`${scan.packId} v${scan.packVersion}`} />
         </dl>
       </Card>
@@ -359,7 +365,11 @@ export function ReportPage() {
                             f.found ? 'text-ink-900' : 'text-advisory-ink italic'
                           }`}
                         >
-                          {f.found ? f.value : refused ? 'not evaluated' : 'not found on this panel'}
+                          {f.found
+                            ? f.value
+                            : refused
+                              ? 'not evaluated'
+                              : 'not found on this panel'}
                         </span>
                         {f.association && (
                           <span className="mt-1 block text-[11px] leading-snug text-ink-400">

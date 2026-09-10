@@ -65,13 +65,7 @@ const TONE_ICON = {
   unknown: IconHelp,
 } as const;
 
-export function StatusBadge({
-  status,
-  size = 'md',
-}: {
-  status: ScanStatus;
-  size?: 'sm' | 'md';
-}) {
+export function StatusBadge({ status, size = 'md' }: { status: ScanStatus; size?: 'sm' | 'md' }) {
   const meta = STATUS_META[status];
   const Icon = TONE_ICON[meta.tone];
   return (

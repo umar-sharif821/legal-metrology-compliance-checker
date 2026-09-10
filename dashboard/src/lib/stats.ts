@@ -75,7 +75,10 @@ export function computeStats(scans: readonly Scan[], days = 30): Stats {
   const findings = scans.reduce((n, s) => n + s.findings.length, 0);
 
   // --- daily series, gap-filled so the x-axis is time and not row index ---
-  const buckets = new Map<string, { scans: number; attention: number; clear: number; insufficient: number }>();
+  const buckets = new Map<
+    string,
+    { scans: number; attention: number; clear: number; insufficient: number }
+  >();
   for (const s of scans) {
     const k = dayKey(s.capturedAt);
     const b = buckets.get(k) ?? { scans: 0, attention: 0, clear: 0, insufficient: 0 };
@@ -145,7 +148,10 @@ export function computeStats(scans: readonly Scan[], days = 30): Stats {
   };
 
   // --- how often each declaration was actually present, across the corpus ---
-  const coverage = new Map<string, { label: string; shortLabel: string; found: number; of: number }>();
+  const coverage = new Map<
+    string,
+    { label: string; shortLabel: string; found: number; of: number }
+  >();
   for (const s of scans) {
     if (s.status === 'INSUFFICIENT_EVIDENCE') continue;
     for (const f of s.fields) {

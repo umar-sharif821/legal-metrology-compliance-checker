@@ -53,7 +53,10 @@ export function RulePackPage() {
         </div>
 
         <div className="border-t border-line-200 p-5">
-          <Note tone="advisory" icon={<IconAlert width={15} height={15} className="mt-px shrink-0" />}>
+          <Note
+            tone="advisory"
+            icon={<IconAlert width={15} height={15} className="mt-px shrink-0" />}
+          >
             <b className="font-semibold">No entry in this pack has been reviewed.</b>{' '}
             {PACK.provenanceNote}
           </Note>
@@ -71,9 +74,7 @@ export function RulePackPage() {
         <Card className="p-4">
           <p className="text-[11px] tracking-[0.05em] text-ink-400 uppercase">Verified clauses</p>
           <p className="mt-1.5 text-[24px] leading-none font-semibold text-ink-900">0</p>
-          <p className="mt-1.5 text-[11.5px] text-ink-500">
-            every sub-clause letter is unverified
-          </p>
+          <p className="mt-1.5 text-[11.5px] text-ink-500">every sub-clause letter is unverified</p>
         </Card>
         <Card className="p-4">
           <p className="text-[11px] tracking-[0.05em] text-ink-400 uppercase">Contested letters</p>
@@ -114,8 +115,7 @@ export function RulePackPage() {
                     <p className="mt-0.5 text-[11.5px] text-ink-500">{d.fieldLabel}</p>
                     {d.clause.contested && (
                       <p className="mt-1.5 text-[11px] leading-snug text-advisory-ink">
-                        Also read as{' '}
-                        {d.clause.alternates.map((a) => a.sub_clause).join(' or ')} —{' '}
+                        Also read as {d.clause.alternates.map((a) => a.sub_clause).join(' or ')} —{' '}
                         {d.clause.alternates[0]?.note}
                       </p>
                     )}
@@ -147,11 +147,23 @@ export function RulePackPage() {
           />
           <ul className="flex flex-col divide-y divide-line-200 text-[12.5px]">
             {[
-              ['Minimum print height, fraction of frame', `${(FRAME_ADMISSION.minTextHeightFraction * 100).toFixed(1)}%`],
-              ['Minimum panel coverage, fraction of frame', `${(FRAME_ADMISSION.minTextCoverage * 100).toFixed(1)}%`],
-              ['Maximum text flush to frame border', `${(FRAME_ADMISSION.maxEdgeTouchFraction * 100).toFixed(0)}%`],
+              [
+                'Minimum print height, fraction of frame',
+                `${(FRAME_ADMISSION.minTextHeightFraction * 100).toFixed(1)}%`,
+              ],
+              [
+                'Minimum panel coverage, fraction of frame',
+                `${(FRAME_ADMISSION.minTextCoverage * 100).toFixed(1)}%`,
+              ],
+              [
+                'Maximum text flush to frame border',
+                `${(FRAME_ADMISSION.maxEdgeTouchFraction * 100).toFixed(0)}%`,
+              ],
               ['Minimum text lines for a verdict', String(EVIDENCE_THRESHOLDS.minOcrLines)],
-              ['Minimum declarations located for a verdict', String(EVIDENCE_THRESHOLDS.minFieldsFound)],
+              [
+                'Minimum declarations located for a verdict',
+                String(EVIDENCE_THRESHOLDS.minFieldsFound),
+              ],
             ].map(([label, value]) => (
               <li key={label} className="flex items-center justify-between gap-3 px-5 py-2.5">
                 <span className="text-ink-700">{label}</span>
@@ -160,7 +172,10 @@ export function RulePackPage() {
             ))}
           </ul>
           <div className="px-5 pb-5 pt-3">
-            <Note tone="advisory" icon={<IconAlert width={15} height={15} className="mt-px shrink-0" />}>
+            <Note
+              tone="advisory"
+              icon={<IconAlert width={15} height={15} className="mt-px shrink-0" />}
+            >
               <b className="font-semibold">
                 Unmeasured entirely: {FRAME_ADMISSION.unscored.join(' and ')}.
               </b>{' '}

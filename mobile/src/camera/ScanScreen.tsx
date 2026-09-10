@@ -424,10 +424,10 @@ function Centered({ children }: { children: ReactNode }) {
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: '#0B1220' },
+  root: { flex: 1, backgroundColor: '#0A1D36' },
   centered: {
     flex: 1,
-    backgroundColor: '#0B1220',
+    backgroundColor: '#0A1D36',
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
@@ -441,7 +441,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: '#F8FAFC',
   },
-  buttonText: { color: '#0B1220', fontSize: 15, fontWeight: '600' },
+  buttonText: { color: '#0A1D36', fontSize: 15, fontWeight: '600' },
   warn: { color: '#FBBF24', fontSize: 13, marginTop: 8, lineHeight: 18 },
 
   hud: {
@@ -450,10 +450,24 @@ const styles = StyleSheet.create({
     right: 0,
     top: 0,
     padding: 14,
-    backgroundColor: 'rgba(11,18,32,0.72)',
+    backgroundColor: 'rgba(10,29,54,0.78)',
+    borderBottomWidth: StyleSheet.hairlineWidth,
+    borderBottomColor: 'rgba(255,255,255,0.10)',
   },
   hint: { color: '#94A3B8', fontSize: 13, lineHeight: 18 },
-  coach: { color: '#FBBF24', fontSize: 14, fontWeight: '700', marginTop: 6 },
+  coach: {
+    alignSelf: 'flex-start',
+    color: '#FBBF24',
+    fontSize: 14,
+    fontWeight: '700',
+    marginTop: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 11,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: 'rgba(251,191,36,0.45)',
+    backgroundColor: 'rgba(251,191,36,0.12)',
+  },
   stats: { color: '#7DD3FC', fontSize: 12, fontVariant: ['tabular-nums'] },
   viewfinder: { color: '#94A3B8', fontSize: 11, lineHeight: 16, marginTop: 6 },
   errorTitle: { color: '#FCA5A5', fontSize: 15, fontWeight: '700' },
@@ -486,7 +500,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 999,
-    backgroundColor: 'rgba(11,18,32,0.85)',
+    backgroundColor: 'rgba(10,29,54,0.88)',
   },
   workingText: { color: '#F8FAFC', fontSize: 13 },
   capture: {
@@ -496,8 +510,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8FAFC',
     borderWidth: 3,
     borderColor: 'rgba(248,250,252,0.35)',
+    elevation: 6,
   },
-  captureText: { color: '#0B1220', fontSize: 17, fontWeight: '800', letterSpacing: 0.5 },
+  captureText: { color: '#0A1D36', fontSize: 17, fontWeight: '800', letterSpacing: 0.5 },
   upload: { marginTop: 14, paddingVertical: 8, paddingHorizontal: 18 },
   uploadText: {
     color: '#F8FAFC',

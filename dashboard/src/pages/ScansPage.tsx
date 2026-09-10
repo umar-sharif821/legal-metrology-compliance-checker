@@ -138,7 +138,11 @@ export function ScansPage() {
             />
           </div>
 
-          <select value={status} onChange={(e) => set('status', e.target.value)} className={selectClass}>
+          <select
+            value={status}
+            onChange={(e) => set('status', e.target.value)}
+            className={selectClass}
+          >
             {STATUS_OPTIONS.map((o) => (
               <option key={o.value} value={o.value}>
                 {o.label}
@@ -146,14 +150,23 @@ export function ScansPage() {
             ))}
           </select>
 
-          <select value={days} onChange={(e) => set('days', e.target.value)} className={selectClass}>
+          <select
+            value={days}
+            onChange={(e) => set('days', e.target.value)}
+            className={selectClass}
+          >
             <option value="">Any date</option>
             <option value="7">Last 7 days</option>
             <option value="14">Last 14 days</option>
             <option value="30">Last 30 days</option>
           </select>
 
-          <Button variant="secondary" size="sm" onClick={exportCsv} disabled={filtered.length === 0}>
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={exportCsv}
+            disabled={filtered.length === 0}
+          >
             <IconDownload width={14} height={14} />
             CSV
           </Button>
@@ -282,7 +295,10 @@ export function ScansPage() {
                     </span>
                   </td>
                   <td className="px-3 py-3">
-                    <span className="text-[12.5px] text-ink-700" title={formatDateTime(s.capturedAt)}>
+                    <span
+                      className="text-[12.5px] text-ink-700"
+                      title={formatDateTime(s.capturedAt)}
+                    >
                       {formatRelative(s.capturedAt)}
                     </span>
                   </td>
@@ -295,7 +311,10 @@ export function ScansPage() {
           <ul className="divide-y divide-line-200 md:hidden">
             {filtered.slice(0, 120).map((s) => (
               <li key={s.id}>
-                <Link to={`/scans/${s.id}`} className="block px-4 py-3.5 transition-colors hover:bg-canvas">
+                <Link
+                  to={`/scans/${s.id}`}
+                  className="block px-4 py-3.5 transition-colors hover:bg-canvas"
+                >
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-[13px] font-medium text-ink-900">
@@ -332,8 +351,8 @@ export function ScansPage() {
 
           {filtered.length > 120 && (
             <p className="border-t border-line-200 px-5 py-3 text-center text-[12px] text-ink-500">
-              Showing the 120 most recent of {filtered.length} matching scans. Narrow the filters, or
-              export the full set to CSV.
+              Showing the 120 most recent of {filtered.length} matching scans. Narrow the filters,
+              or export the full set to CSV.
             </p>
           )}
         </Card>
