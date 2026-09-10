@@ -376,6 +376,7 @@ function buildScan(index: number, rand: () => number, nowMs: number): Scan {
     // Sample records have no OCR behind them, and say so by carrying none.
     ocrLines: [],
     analysisNote: null,
+    engine: 'sample record — not read from an image',
     packId: 'demo-lmpc-v0',
     packVersion: '0.1.0',
     timings: {

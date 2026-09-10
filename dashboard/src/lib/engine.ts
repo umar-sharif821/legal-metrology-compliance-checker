@@ -27,6 +27,8 @@ import type {
 import type { FieldReport as EngineField, Verdict } from '@engine/verdict/types';
 
 import { canvasUrl, recognise } from './ocr';
+import { recogniseGemini } from './gemini';
+import { apiKey, currentEngine, ENGINE_LABEL } from './engineChoice';
 import type { Admission, Box, FieldReport, Finding, FrameCheck, Scan } from './types';
 
 export type Stage = 'ocr' | 'extract' | 'evaluate';
@@ -137,7 +139,11 @@ export async function analyseInBrowser(
   onStage?: (stage: Stage) => void,
 ): Promise<Scan> {
   onStage?.('ocr');
-  const { candidates } = await recognise(file);
+  // The only place the engine choice is acted on. Everything after this line is
+  // identical whichever engine ran, which is the seam doing its job.
+  const engineId = currentEngine();
+  const { candidates } =
+    engineId === 'gemini' ? await recogniseGemini(file, apiKey()) : await recognise(file);
 
   onStage?.('extract');
   onStage?.('evaluate');
@@ -213,6 +219,7 @@ export async function analyseInBrowser(
     insufficientReason: verdict.insufficientReason,
     ocrLines: frame.lines.map((l) => l.text),
     analysisNote,
+    engine: ENGINE_LABEL[engineId],
     packId: verdict.packId,
     packVersion: verdict.packVersion,
     timings: {

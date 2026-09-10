@@ -36,8 +36,12 @@
  * phone. That is the whole point of `A-0`'s provider seam.
  */
 import { createWorker, PSM, type Worker } from 'tesseract.js';
-import type { Box, OcrFrame, OcrLine } from '@engine/scan/types';
+import type { Box, OcrLine } from '@engine/scan/types';
 import { splitByGaps } from './lines';
+import { loadImageElement, type Candidate } from './imaging';
+
+export { canvasUrl } from './imaging';
+export type { Candidate } from './imaging';
 
 /**
  * Long edge for the first, whole-frame pass.
@@ -103,24 +107,6 @@ export function warmUpOcr(): void {
   void getWorker().catch(() => {
     // Speculative work; a real failure surfaces on the actual scan, where it can be shown.
   });
-}
-
-/**
- * Decode and orient.
- *
- * An `<img>` element rather than `createImageBitmap`, because browsers apply the file's
- * EXIF orientation to it. A phone photo that arrives rotated would otherwise be read
- * sideways, which looks like an OCR failure and is not one.
- */
-async function loadImage(file: File): Promise<{ img: HTMLImageElement; revoke: () => void }> {
-  const url = URL.createObjectURL(file);
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = () => reject(new Error('The browser could not decode that image.'));
-    el.src = url;
-  });
-  return { img, revoke: () => URL.revokeObjectURL(url) };
 }
 
 interface Rect {
@@ -246,33 +232,13 @@ function textExtent(data: unknown): Box | null {
   return { x, y, width: right - x, height: bottom - y };
 }
 
-/**
- * One way of reading the image.
- *
- * More than one is produced when a crop is worth trying, because neither the whole frame
- * nor the crop reliably wins: the frame keeps every declaration in view at low
- * resolution, the crop gives resolution but can cut off a block the first pass could not
- * see. The caller runs extraction over each and keeps the one that located more
- * declarations — the same best-of-N idea the phone applies to camera frames, and cheap
- * here because extraction costs about a millisecond while recognition costs a second.
- */
-export interface Candidate {
-  readonly frame: OcrFrame;
-  readonly width: number;
-  readonly height: number;
-  /** The image this reading was taken from — what the report must display. */
-  readonly canvas: HTMLCanvasElement;
-  /** Fraction of the original area this reading covers. 1 for the whole frame. */
-  readonly fraction: number;
-}
-
 export interface Recognised {
   readonly candidates: readonly Candidate[];
 }
 
 /** Read one image. Throws rather than returning anything invented. */
 export async function recognise(file: File): Promise<Recognised> {
-  const { img, revoke } = await loadImage(file);
+  const { img, revoke } = await loadImageElement(file);
   try {
     const worker = await getWorker();
     const full: Rect = { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };
@@ -337,15 +303,4 @@ export async function recognise(file: File): Promise<Recognised> {
   } finally {
     revoke();
   }
-}
-
-/** The analysed canvas as an object URL, so the report shows what was actually judged. */
-export function canvasUrl(canvas: HTMLCanvasElement): Promise<string> {
-  return new Promise((resolve) => {
-    canvas.toBlob(
-      (blob) => resolve(blob ? URL.createObjectURL(blob) : canvas.toDataURL('image/jpeg', 0.9)),
-      'image/jpeg',
-      0.92,
-    );
-  });
 }

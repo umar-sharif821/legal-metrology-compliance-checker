@@ -110,6 +110,8 @@ export interface Scan {
    * picture on screen is not the picture they handed over.
    */
   readonly analysisNote: string | null;
+  /** Which engine read this image. Shown, because it changes what to expect. */
+  readonly engine: string;
   readonly packId: string;
   readonly packVersion: string;
   readonly timings: {

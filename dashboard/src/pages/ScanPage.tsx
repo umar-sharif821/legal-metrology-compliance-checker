@@ -20,6 +20,16 @@ import {
 } from '../components/icons';
 import { analyseImage } from '../lib/api';
 import { warmUpOcr } from '../lib/ocr';
+import {
+  apiKey,
+  currentEngine,
+  ENGINE_LABEL,
+  hasApiKey,
+  keyFromEnv,
+  setApiKey,
+  setEngine,
+  type EngineId,
+} from '../lib/engineChoice';
 import type { Stage } from '../lib/engine';
 import { useScans } from '../lib/store';
 import { FRAME_ADMISSION, PACK } from '../lib/rulepack';
@@ -77,6 +87,8 @@ export function ScanPage() {
   const [stage, setStage] = useState(-1);
   const [error, setError] = useState<string | null>(null);
   const [camera, setCamera] = useState(false);
+  const [engineId, setEngineId] = useState<EngineId>(() => currentEngine());
+  const [keyDraft, setKeyDraft] = useState(() => (keyFromEnv() ? '' : apiKey()));
 
   // Loading the recogniser takes a second or two. Start it while the operator is still
   // choosing a file, so the first scan is not the one that pays for it.
@@ -392,6 +404,88 @@ export function ScanPage() {
       </Card>
 
       <div className="flex flex-col gap-4">
+        <Card className="animate-rise">
+          <CardHead
+            title="Recognition engine"
+            hint="Only the reading changes. The rules, citations and verdict are identical either way."
+          />
+          <div className="flex flex-col gap-2 p-4">
+            {(['tesseract', 'gemini'] as const).map((id) => (
+              <label
+                key={id}
+                className={`flex cursor-pointer items-start gap-2.5 rounded-lg border px-3 py-2.5 transition-colors ${
+                  engineId === id
+                    ? 'border-navy-600 bg-navy-600/5'
+                    : 'border-line-200 hover:bg-canvas'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="engine"
+                  checked={engineId === id}
+                  disabled={busy}
+                  onChange={() => {
+                    setEngine(id);
+                    setEngineId(id);
+                  }}
+                  className="mt-0.5"
+                />
+                <span className="min-w-0">
+                  <span className="block text-[12.5px] font-medium text-ink-900">
+                    {ENGINE_LABEL[id]}
+                  </span>
+                  <span className="block text-[11px] leading-snug text-ink-500">
+                    {id === 'tesseract'
+                      ? 'Works with the network unplugged. Weak on creased, glossy or angled packaging — it matches glyph shapes and has no language understanding to fall back on.'
+                      : 'Reads a damaged label the way a person does, using context. Requires a key and a network connection, and the image is sent to Google.'}
+                  </span>
+                </span>
+              </label>
+            ))}
+
+            {engineId === 'gemini' && (
+              <div className="mt-1 flex flex-col gap-2 rounded-lg border border-advisory-line bg-advisory-bg p-3">
+                <p className="text-[11.5px] leading-relaxed text-advisory-ink">
+                  <b className="font-semibold">The image leaves this machine.</b> It is sent to
+                  Google&rsquo;s API for reading only — no verdict, no rule, no citation comes from
+                  the model. A free key comes from aistudio.google.com. Stored in this browser only,
+                  which is fine for a demonstration and is not production key handling.
+                </p>
+                {keyFromEnv() ? (
+                  <p className="text-[11.5px] font-medium text-clear-ink">
+                    Using the key from <span className="font-mono">.env.local</span>.
+                  </p>
+                ) : (
+                  <div className="flex gap-2">
+                    <input
+                      type="password"
+                      value={keyDraft}
+                      onChange={(e) => setKeyDraft(e.target.value)}
+                      placeholder="Paste your API key"
+                      className="h-8 min-w-0 flex-1 rounded border border-line-300 bg-surface px-2 font-mono text-[11.5px]"
+                    />
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => {
+                        setApiKey(keyDraft);
+                        setKeyDraft(apiKey());
+                      }}
+                    >
+                      Save
+                    </Button>
+                  </div>
+                )}
+                {!hasApiKey() && !keyDraft && (
+                  <p className="text-[11px] text-advisory-ink">
+                    No key set — analysing will fail until one is saved.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </Card>
+
         <Card className="animate-rise">
           <CardHead title="Pipeline" hint="What runs, in order, once you press analyse" />
           <ol className="flex flex-col p-2">

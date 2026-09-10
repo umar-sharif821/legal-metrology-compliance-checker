@@ -250,6 +250,7 @@ export function ReportPage() {
             value={scan.source === 'device' ? 'Field device' : 'Uploaded image'}
           />
           <Meta label="Rule pack" value={`${scan.packId} v${scan.packVersion}`} />
+          <Meta label="Read by" value={scan.engine} />
         </dl>
       </Card>
 

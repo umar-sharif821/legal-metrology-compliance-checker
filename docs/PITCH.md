@@ -103,6 +103,40 @@ enhancement path, never a dependency."*
 *"Not yet, and it says so rather than failing quietly. That's the next language pack —
 the recognition seam already supports adding one."*
 
+### If you demo with the cloud recognition engine
+
+The line to lead with, because it is the whole architecture in one sentence:
+
+> "We separate perception from judgement. A vision model reads the label — that part is
+> allowed to be statistical. The step that turns what was read into a legal finding is a
+> pure function with no learned parameters, so the same inputs always give the same
+> verdict. An enforcement action has to be reproducible; a model's opinion is not."
+
+**"So it's just an API call?"**
+*"The recogniser sits behind an interface. On the phone it's ML Kit on-device, in the
+browser it's Tesseract, and the cloud model is a third adapter. We swapped the entire
+engine during development and nothing downstream changed — that's what the interface is
+for."*
+
+**"What about offline? You claimed offline-first."**
+*"The Android app reaches a verdict with no network at all, and the browser falls back to
+on-device recognition. The cloud model is an enhancement path, never a dependency."*
+Switch the engine back to Tesseract and scan a specimen to show it, if there is time.
+
+**"Doesn't the model hallucinate?"**
+*"It can, which is exactly why it never decides anything. It returns text and boxes. And
+we print the raw text it read on the report — a misreading is visible rather than hidden
+behind a confident verdict."*
+
+**"Is sending packaging photos to Google acceptable for a government deployment?"**
+*"For a pilot, yes — it's a photo of a retail label, not personal data. For production you
+move to a self-hosted model or a vendor under a data-processing agreement. Because the
+recogniser is an adapter, that's a configuration change rather than a rewrite."*
+
+**Never call it "our AI model."** It is Google's model behind your interface. The
+precision is worth more than the boast, and claiming otherwise is the one thing that could
+actually cost you the round.
+
 **Anything you don't know:** say so, and say what would settle it. That reads as
 competence in a government-facing panel. Never invent a number.
 
@@ -120,6 +154,8 @@ competence in a government-facing panel. Never invent a number.
 ## Before you present
 
 - [ ] `cd dashboard && npm run dev` running, browser open on `/how`, zoom ~110%
+- [ ] If demoing the cloud engine: key saved, one scan already run to prove it works,
+      phone hotspot ready, and Tesseract known to be one click away as the fallback
 - [ ] Hard-reload once (`Ctrl+Shift+R`) — the OCR worker caches
 - [ ] Run all three specimens once so the engine is warm
 - [ ] Laptop on mains, notifications off, phone on silent

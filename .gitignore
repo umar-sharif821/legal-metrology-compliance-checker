@@ -54,3 +54,7 @@ eval/out/
 
 # OCR benchmark inputs are regenerated from bench/mk.html, not committed
 /dashboard/bench/*.png
+
+# Local API keys — never committed
+.env.local
+.env.*.local
