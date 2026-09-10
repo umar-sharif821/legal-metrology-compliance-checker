@@ -26,7 +26,7 @@ import {
 
 import { DEMO_PACK } from '../rulepack/pack';
 import { extract } from '../scan/extract';
-import type { OcrFrame } from '../scan/types';
+import type { ExtractionResult, OcrFrame } from '../scan/types';
 import { evaluate } from '../verdict/evaluate';
 import type { Verdict } from '../verdict/types';
 import VerdictScreen from '../verdict/VerdictScreen';
@@ -37,6 +37,8 @@ import { useScanLoop, type LiveCapture } from './useScanLoop';
 
 interface Frozen {
   readonly capture: LiveCapture;
+  /** Kept beside the verdict so `D-3`'s recorder can write the cascade's working. */
+  readonly extraction: ExtractionResult;
   readonly verdict: Verdict;
 }
 
@@ -92,7 +94,7 @@ export default function ScanScreen() {
     if (!capture) return;
     const extraction = extract(DEMO_PACK, capture.frame.lines);
     const verdict = evaluate(DEMO_PACK, capture.frame, extraction);
-    setFrozen({ capture, verdict });
+    setFrozen({ capture, extraction, verdict });
   }, [live.capture]);
 
   const onPreviewLayout = useCallback((event: LayoutChangeEvent) => {
@@ -142,6 +144,7 @@ export default function ScanScreen() {
       <VerdictScreen
         verdict={frozen.verdict}
         capture={frozen.capture}
+        extraction={frozen.extraction}
         onResume={() => setFrozen(null)}
       />
     );

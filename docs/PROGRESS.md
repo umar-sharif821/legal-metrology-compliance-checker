@@ -3,7 +3,7 @@
 > Single source of truth for project state. Updated by `/handoff`, read by `/pickup`.
 > Keep it terse. This file is read in full every session — every line costs tokens.
 
-**Last updated:** 2026-09-10 · **Sessions completed:** 5 · **Current sprint:** 1 (paused for the demo detour)
+**Last updated:** 2026-09-10 · **Sessions completed:** 6 · **Current sprint:** 1 (paused for the demo detour)
 
 ---
 
@@ -15,56 +15,100 @@
 > throwaway scaffolding and must never be promoted into `packages/rule-engine-ts` or
 > `rulepack/*.json`.
 
-**Current demo phase:** `D-3` — field trial (tune lexicons/shapes in JSON against ten real packets)
-**Status:** not started
-**Blocked on:** nothing.
+**Current demo phase:** `D-3` — field trial
+**Status:** in progress — tooling built and proven on device; **2 of 10 packets recorded**
+**Blocked on:** the user has only one packet. `D-3` cannot finish without eight or nine more.
 
-`D-2` is done and verified on the Nord 4 against a real snack packet (Bhujialalji Navratna
-Mix). The loop runs at ~1 pass/s, the overlay tracks the label, Freeze produces a verdict
-with citations, and `INSUFFICIENT_EVIDENCE` fires on a bad capture. Measured this session:
+**`npm test` is RED, deliberately. Four failures, all in `mobile/src/scan/corpus.test.ts`.**
+They are the D-3 to-do list, not a breakage. The other eight gates are green. Each failure
+names a defect measured on a real packet — do not "fix" them by loosening the expectations.
 
-| stage | Nord 4 (Snapdragon 7+ Gen 3) |
-|---|---|
-| capture | 310–350 ms |
-| OCR (41–71 lines) | 360–860 ms |
-| extract + evaluate | sub-millisecond, both pure |
+### The corpus and how it works
 
-**Freeze takes no picture.** It keeps the last completed pass, already recognised — so the
-verdict is instant and the frame on screen is provably the frame it came from (P7).
+`mobile/field-trial/NNN-<slug>.json` is one real packet's raw OCR lines, recorded on the
+device and pulled with `mobile/scripts/pull-field-trial.sh`. `corpus.test.ts` replays each
+through the real `extract` → `evaluate` path and **fails any record with no `expect` block**
+— so recording a packet reds the suite until a person has decided what the app *should*
+have made of it. Same rule as the CI gates: never silently green. `mobile/field-trial/README.md`
+is the authoring guide. JPEGs are gitignored (3.6 MB each); the JSON is the replay corpus,
+since tuning changes lexicons and shapes, which operate on lines.
 
-Two device-only bugs were found and fixed here; both are recorded in the decisions log and
-neither is guessable from the code:
+Record with the **Record** control on the verdict screen (`FieldTrialBar.tsx`) — name the
+packet, tap Record. It is its own file and its own strip of screen so `D-5` can delete it
+with one import and one element.
 
-1. ML Kit's coordinates are **not** in the frame expo-camera reports. `resolveCoordinateFrame`
-   now measures which frame applies. This supersedes the D-1 note that no transposition
-   was needed.
-2. The loop **stalled dead at pass ~69** — `takePictureAsync` stopped settling, silently,
-   behind a live preview. `PASS_TIMEOUT_MS` plus a camera remount on restart now cover it.
+### What D-3 measured — four failures, root causes established
 
-**What D-2 did not prove:** the evidence *highlight* has never been seen firing. On every
-packet scanned so far each finding was an *absence*, which has no region to point at and
-correctly renders "Nothing to highlight". Beat 5's visual needs a declaration that is
-present but defective (an MRP without "inclusive of all taxes", a net quantity without a
-unit). Find one in `D-3`; the overlay itself is proven exact, since the same code draws the
-line boxes pixel-accurately on the frozen frame.
+Both records are the *same compliant packet* (Lay's/PepsiCo bhujia namkeen). It has all six
+declarations printed. **The app flagged it `ATTENTION` both times and every finding was
+false.** That is the P3 failure the demo exists to prevent, found on the first real packet.
+
+1. **Anchor matching has no word boundary.** `findAnchorEnd` in `mobile/src/scan/normalise.ts:71`
+   is a bare `line.indexOf(anchor)`. The `commodity_name` lexicon holds `"product"`, the line
+   read `ingredients: cereal products (6779%)`, so it matched *inside* `products` — and
+   because `anchor_remainder_is_value: true`, the value came back as
+   `"s (6779%) (rice meal (44%),"` at **high** confidence, the leading `s` being the leftover
+   of the word. Will misfire on "Cereal Products", "Dairy Products", "Product of India".
+   **Not overfitting to one packet — a real defect.** Fix is a word-boundary match (TS).
+2. **Stage B pairs by list index, not geometry.** `mobile/src/scan/extract.ts:133` is
+   `normalised[i + k]`. In record 001 that paired `NET QTY:` (idx 30, y=3365, x=942) with
+   `Pee 100g` (idx 31, y=1697, x=1787) — the nutrition table's "Per 100 g", 1668 px away in
+   another column — and reported `net_quantity = "100g"` at medium confidence. Every box
+   needed to reject it is in the record and is never read. This is `T-2.3`.
+3. **Stage C matched an FSSAI category code as a quantity.** Record 002 returned
+   `net_quantity = "15.1g"` out of `PROPRIETARY FOOD--NAMKEEN(15.1)`. Shape is too loose.
+4. **`LMPC-6-1-MRP-INCLUSIVE` is a false flag on OCR noise.** The packet *does* say
+   "INCL. OF ALL TAXES"; OCR returned `MIRP RS. 20/- (NCL. OF 42L TAYES)` and the phrase
+   check failed. The pack's own remedy text already predicts this ("a common OCR miss").
+   Tunable in the lexicon — no code change.
+
+**The same packet gives a different verdict every pass** (record 001 found 2 fields, record
+002 found 3, sharing none). P1 holds — the decision layer is pure — but its input is
+stochastic. Worth stating plainly in the pitch rather than letting it be discovered.
+
+**Evidence highlight: PROVEN.** D-2's open item is closed. `LMPC-6-1-MRP-INCLUSIVE` in
+record 002 carries `evidenceBox=True`; tapping the finding draws the amber box over the MRP
+line on the frozen frame. Beat 5 has a visual. Note it is currently a *false* flag — a real
+present-but-defective declaration is still wanted, but the demo beat no longer has nothing.
+
+### Judgement calls in the `expect` blocks — overrule freely
+
+Both records' `notes` fields carry the reasoning. The two that matter:
+
+- Record 002 `net_quantity` expects `null`, not `"84.9 g"`. The true value **is** in the OCR
+  at line 49 (`84.9g 78 +i)`, y=2868 x=1475), 19 indices from its anchor at line 30
+  (y=3013 x=886). Reaching it needs spatial association — `T-2.3`, code, not JSON. `null`
+  is the near-term target because silence beats `15.1g` (P3); `"84.9 g"` is the T-2.3 target.
+- Record 001 `commodity_name` expects `null`, though `namkeen` (line 8) is arguably the
+  commodity name. Left null: P3 prefers silence, and one packet does not justify a new
+  lexicon term.
+
+### Device notes learned this session
+
+- `adb devices` showing `unauthorized` is a *different* failure from the device being absent;
+  the first needs the on-phone prompt accepted, the second a cable. `pull-field-trial.sh`
+  distinguishes them.
+- **ADB over Wi-Fi is not available** — Wi-Fi is off on the phone (`settings get global
+  wifi_on` = 0, it runs on mobile data). Field trials stay tethered.
+- Android's `ls` column-formats under `adb exec-out run-as`; the pull script needs `ls -1`
+  or two filenames arrive on one line. Cost one bad pull to find.
+- App-private storage needs `adb exec-out run-as <pkg> cat`; `adb pull` cannot reach it.
+  `exec-out` (not `shell`) is required or the JPEGs are corrupted by CRLF translation.
+- Taps are dropped when they land during a re-render — confirmed repeatedly. Drive the phone
+  with a retry loop that checks for the expected screen, never a single blind tap.
+- `uiautomator dump` returns garbled bounds for RN ScrollView children mid-scroll. Scroll,
+  settle, screenshot, then tap from the screenshot.
 
 Rebuild and run with `cd mobile && npx expo run:android --device CPH2661`. **The device
-name is `CPH2661`, not the adb serial** — `expo run:android --device <serial>` fails with
-`Could not find device with name`. Incremental Gradle is ~24 s; the JS bundle ~9 s. JS
-edits reload over Metro with no rebuild.
-
-Driving the phone from a session: `adb exec-out screencap -p > shot.png` then read it, and
-`adb shell input tap X Y`. Get real hit boxes from
-`adb shell uiautomator dump /sdcard/ui.xml` (prefix the command with `MSYS_NO_PATHCONV=1`
-in Git Bash, or the `/sdcard` path is mangled into a Windows path). Guessing tap
-coordinates off a screenshot is unreliable — a tap that lands during a re-render is dropped.
+name is `CPH2661`, not the adb serial.** Incremental Gradle is ~24 s; the JS bundle ~9 s.
+JS edits reload over Metro with no rebuild — this session's changes needed none.
 
 Demo phases, in priority order. After each one there is still a demo you could give.
 
 - [x] `D-0` Foundations — scaffold, Gradle build green, rule pack, evaluator, unit tests · *no device*
 - [x] `D-1` Shell on the phone — one still capture reaches ML Kit and prints text
 - [x] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
-- [ ] `D-3` Field trial — tune lexicons/shapes in JSON against ten real packets
+- [>] `D-3` Field trial — 2/10 packets recorded; tooling done; blocked on packets
 - [ ] `D-4` Honest degradation — insufficient evidence, coach hints, aeroplane mode
 - [ ] `D-5` Polish and rehearsal — icon, standalone APK, `docs/DEMO_SCRIPT.md`, two run-throughs
 
@@ -85,18 +129,24 @@ carries exactly one citation. Everything starts `PENDING_LEGAL_REVIEW`, which th
 caps at `max_severity: advisory`. Contested sub-clause letters go in
 `clause.alternate_readings`, not resolved silently. Validate with `python rulepack/validate.py`.
 
-Nine gates now run green: `npm run format:check`, `npm run lint`, `npm run typecheck`,
-`npm test`, `ruff check .`, `ruff format --check .`, `pytest`, `npm audit`, and
-`python rulepack/validate.py`. Run them before and after any change.
+Nine gates: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm test`,
+`ruff check .`, `ruff format --check .`, `pytest`, `npm audit`, `python rulepack/validate.py`.
+Eight are green; `npm test` is red on the D-3 corpus suite only — see **Now**. Run them all
+before and after any change.
 
 Setup on a fresh clone: `npm install` and `python -m pip install -r requirements-dev.txt`.
 
 **Needed from user:**
 - **Keep the Nord 4 connected.** `D-3`…`D-5` all need it. Device name `CPH2661`,
   serial `bac3856a`, camera permission already granted to `com.sih26034.lmscan`.
-- **Ten real packets for `D-3`.** At least one must have a declaration that is *present
-  but defective* — an MRP with no "inclusive of all taxes", or a net quantity with no unit
-  — otherwise the evidence highlight (demo beat 5) still cannot be shown.
+- **Eight or nine more packets for `D-3`.** The user has one (Lay's bhujia namkeen, recorded
+  twice). **This is the blocker.** LMPC covers *any* packaged commodity, so toothpaste, soap,
+  shampoo, tea, salt, atta, oil, biscuits, noodles, a medicine box all qualify — variety is
+  the point, since the wording varies (`Net Wt.`/`Net Qty`/`Quantity`, g/ml/kg/L, MRP
+  phrasings, one- vs two-column panels). Ten captures of one packet would tune the pack to
+  that packet.
+- Still wanted: a packet with a declaration *genuinely* present but defective. The evidence
+  highlight is now proven (see **Now**), but on a *false* flag; a real defect would be better.
 - A Legal Metrology officer / law student contact for the rule-pack review (plan §4,
   needed before Sprint 6, ideally started in Sprint 1). **Not yet asked.**
 - Docker is not installed on this machine (`docker --version` fails). `T-1.11` needs
@@ -152,6 +202,13 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-10` **The scan loop stalls dead at ~pass 69** — `takePictureAsync` stops settling, no error, preview still at 25 fps, counter frozen. That is ~1 minute of scanning, so it lands mid-demo. Fixed by `PASS_TIMEOUT_MS` (6 s, ~7× a healthy pass) on both capture and OCR, and by `Restart scanning` remounting the `CameraView` via a `key` — restarting the loop alone does nothing, the loop is not what is stuck. Root cause not established; treat a stall as expected, not as a one-off.
 - `2026-09-10` `expo-file-system` added as a **direct** dependency of `mobile/`. It was already autolinked as a transitive dep of `expo`, so this is a JS-resolution change only — no Gradle rebuild. Used to delete each replaced capture; without it a live loop leaves hundreds of MB of full-resolution JPEGs in the cache during a rehearsal.
 - `2026-09-10` Sub-clause letters are concatenated raw from the pack (`Rule 6` + `(1)(d)`), never re-bracketed — the pack already writes its own punctuation, and wrapping produced `Rule 6((1)(d))` on the device (P6).
+- `2026-09-10` **`D-3` field-trial corpus is a test fixture, not a log.** `mobile/field-trial/*.json` holds a real packet's raw OCR lines; `corpus.test.ts` replays them through `extract` → `evaluate` and **fails any record without a hand-written `expect` block**. Recording a packet reds `npm test` until a person reviews it — the same "never silently green" rule as the CI gates. Do not weaken this to get the suite green.
+- `2026-09-10` Corpus JSON is committed, JPEGs are gitignored (3.6 MB each). Tuning changes lexicons and shapes, which operate on *lines*, so the JSON alone is the replay corpus; the image is only for looking at a packet again.
+- `2026-09-10` The recorder is descriptive, never normative: the device writes what the app *did*, a reviewer writes what it *should* do. Having the device write both would enshrine current behaviour as correct.
+- `2026-09-10` **First real packet was compliant and the app flagged it, twice, with entirely false findings.** Four root causes established, all in **Now**. The headline one is not a tuning question: `findAnchorEnd` (`normalise.ts:71`) matches anchors with a bare `indexOf`, so the lexicon term `product` matched inside `cereal products` and returned the rest of the word as the value, at high confidence.
+- `2026-09-10` **The evidence highlight is proven on device.** D-2's open item is closed — a finding with `evidenceBox` draws the amber box over its source line on the frozen frame.
+- `2026-09-10` ADB over Wi-Fi is unavailable on this phone: Wi-Fi is off and it runs on mobile data. Field trials are tethered; do not re-attempt wireless setup.
+- `2026-09-10` Driving the phone needs a retry loop that verifies the expected screen after each tap. Single blind taps are dropped when they land during a re-render, repeatedly and unpredictably.
 - `2026-09-10` Bottom-anchored controls reserve `NAV_BAR_INSET = 48` for Android's navigation bar. Same reasoning as the top banner's `StatusBar.currentHeight`: edge-to-edge is forced, the platform exposes no bottom equivalent to JS, and `react-native-safe-area-context` stays rejected.
 
 ---
@@ -181,25 +238,25 @@ Noticed but deliberately out of scope for now. Do not action without asking.
   no task on the board creates a schema for it. `T-1.9` compares verdicts byte-identically,
   which will catch divergence but not a shape both evaluators get wrong together. Decide
   before `T-1.7` whether the envelope gets its own schema.
-- **Anchor–value column offset seen on the first real packet** (`D-1`, Bhujialalji Navratna
-  Mix). The label panel prints anchors in a left column and values in a right column, and
-  the rows do not line up: `150 g` sits vertically level with `DATE OF MANUFACTURE`, not
-  with `NET QUANTITY`. Naive "value is the nearest line below the anchor" association will
-  mis-attribute. This is exactly what `T-2.3` exists for; `D-3` will meet it first. Do not
-  tune the heuristic against this one packet — it is one sample, and P3 says a wrong
-  attribution is worse than none.
+- **Anchor–value column offset — now measured twice, with numbers.** See **Now** items 2
+  and the record-002 judgement call. Stage B pairs by *list index*, not geometry, and the
+  boxes needed to reject a bad pairing are already in the record. This is `T-2.3`. Still do
+  not tune the association heuristic against this one packet — but note the *defect* is now
+  established (the geometry is simply never consulted), which is separate from tuning it.
 - `rulepack/CHANGELOG.md` is in the plan §18 layout ("every clause change, dated, with
   reviewer") but no task creates it. Fold it into `T-1.3`, which writes the first pack.
+- **The `Record` control ships in the app.** `D-5` must decide whether the pitch shows a
+  debug control. Removing it is one import and one element in `VerdictScreen.tsx`.
 - **The frozen frame sometimes renders sideways.** With `skipProcessing` the EXIF
   orientation varies with how the phone was tilted at the shutter, so one capture displays
   upright and the next lies on its side. **The boxes are correct either way** — `<Image>`
   and ML Kit honour the same tag, so they never disagree with each other. Cosmetic only;
   fix in `D-5` polish, or drop `skipProcessing` in `D-3` and pay the rotate-and-rescale
   latency. Do not "fix" it by rotating the overlay — that reintroduces the bug D-2 removed.
-- **`commodity_name` extracted `"may differ."` at `A_anchored_inline` / `high`** from
-  "The picture is for representation purpose only, actual product may differ." A confident
-  wrong value is precisely what P3 is about. This is `D-3`'s job — tune the lexicon/shape
-  in the JSON, and only after seeing several packets, not this one.
+- ~~`commodity_name` extracted `"may differ."`~~ **Root cause found, see Now item 1** — both
+  this and the `"s (6779%) (rice meal (44%),"` case are the same bug: `indexOf` matched the
+  lexicon term `product` inside `product may differ` / `cereal products`. Not a lexicon
+  tuning job after all. Fix is a word-boundary match in `normalise.ts`.
 
 ---
 

@@ -1,0 +1,3 @@
+# The captures themselves. See README.md — the JSON is the replay corpus; the JPEG is
+# only for looking at a packet again, and ten full-resolution frames is tens of megabytes.
+*.jpg

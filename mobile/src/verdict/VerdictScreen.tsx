@@ -32,11 +32,21 @@ import {
 import Overlay, { type OverlayBox } from '../camera/Overlay';
 import type { Size } from '../camera/projection';
 import type { LiveCapture } from '../camera/useScanLoop';
+import FieldTrialBar from '../scan/FieldTrialBar';
+import type { ExtractionResult } from '../scan/types';
 import type { FieldReport, Finding, Verdict, VerdictStatus } from './types';
 
 interface Props {
   readonly verdict: Verdict;
   readonly capture: LiveCapture;
+  /**
+   * Carried through only so the field trial can record it (`D-3`).
+   *
+   * The screen itself renders `verdict`, which already holds everything it shows. The
+   * extraction is the *working* — which stage recovered each value and how sure it was —
+   * and that is precisely what a person tuning the lexicons a day later needs to see.
+   */
+  readonly extraction: ExtractionResult;
   readonly onResume: () => void;
 }
 
@@ -187,7 +197,7 @@ function FindingCard({
   );
 }
 
-export default function VerdictScreen({ verdict, capture, onResume }: Props) {
+export default function VerdictScreen({ verdict, capture, extraction, onResume }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frameSize, setFrameSize] = useState<Size>({ width: 0, height: 0 });
 
@@ -276,6 +286,10 @@ export default function VerdictScreen({ verdict, capture, onResume }: Props) {
           {verdict.timings.extractMs} ms · evaluate {verdict.timings.evaluateMs} ms
         </Text>
       </ScrollView>
+
+      {/* D-3 only. `D-5` decides whether the pitch shows it; deleting these two lines is
+          the whole of that decision. */}
+      <FieldTrialBar capture={capture} extraction={extraction} verdict={verdict} />
 
       <View style={styles.actions}>
         <Pressable accessibilityRole="button" style={styles.resume} onPress={onResume}>

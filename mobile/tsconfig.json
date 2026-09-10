@@ -1,6 +1,10 @@
 {
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
-    "strict": true
+    "strict": true,
+    // `field-trial/*.json` is read from disk by `src/scan/corpus.test.ts`, which runs
+    // under Node in the root Vitest suite and never reaches the app bundle. The types are
+    // needed to typecheck it; nothing in `src/` outside a `.test.ts` may import `node:*`.
+    "types": ["node"]
   }
 }
