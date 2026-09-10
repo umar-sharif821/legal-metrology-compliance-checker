@@ -41,11 +41,14 @@ import { FRAME_ADMISSION, PACK } from '../lib/rulepack';
  * runs *after* recognition, inside `evaluate` — the documented deviation in `D-4`. The
  * list says so rather than showing the order the plan wanted.
  */
-const STAGES: readonly { id: Stage; label: string; detail: string }[] = [
+const stagesFor = (engineId: EngineId): readonly { id: Stage; label: string; detail: string }[] => [
   {
     id: 'ocr',
     label: 'Reading text',
-    detail: 'Tesseract, in this browser — no image leaves this machine',
+    detail:
+      engineId === 'gemini'
+        ? 'Google Gemini — the image is sent to Google for transcription only'
+        : 'Tesseract, in this browser — no image leaves this machine',
   },
   {
     id: 'extract',
@@ -196,7 +199,7 @@ export function ScanPage() {
       // The stage index is driven by the pipeline itself, not by a timer. It was a timer
       // once, back when nothing was actually running behind it.
       const { data, origin } = await analyseImage(file, (s: Stage) => {
-        setStage(STAGES.findIndex((x) => x.id === s));
+        setStage(stagesFor(engineId).findIndex((x) => x.id === s));
       });
       addScan(data);
       toast(
@@ -225,7 +228,7 @@ export function ScanPage() {
       setBusy(false);
       setStage(-1);
     }
-  }, [file, addScan, navigate, toast]);
+  }, [file, engineId, addScan, navigate, toast]);
 
   return (
     <div className="mx-auto grid max-w-6xl gap-4 lg:grid-cols-[minmax(0,1.15fr)_minmax(0,1fr)]">
@@ -456,24 +459,25 @@ export function ScanPage() {
                     Using the key from <span className="font-mono">.env.local</span>.
                   </p>
                 ) : (
-                  <div className="flex gap-2">
+                  <div className="flex flex-col gap-1.5">
                     <input
                       type="password"
                       value={keyDraft}
-                      onChange={(e) => setKeyDraft(e.target.value)}
-                      placeholder="Paste your API key"
-                      className="h-8 min-w-0 flex-1 rounded border border-line-300 bg-surface px-2 font-mono text-[11.5px]"
-                    />
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => {
-                        setApiKey(keyDraft);
-                        setKeyDraft(apiKey());
+                      onChange={(e) => {
+                        // Stored on every keystroke rather than behind a Save button.
+                        // Pasting a key and pressing Analyse is what a person actually
+                        // does, and the button made that silently fail.
+                        setKeyDraft(e.target.value);
+                        setApiKey(e.target.value);
                       }}
-                    >
-                      Save
-                    </Button>
+                      placeholder="Paste your API key"
+                      className="h-8 w-full rounded border border-line-300 bg-surface px-2 font-mono text-[11.5px]"
+                    />
+                    {keyDraft.trim().length > 0 && (
+                      <span className="text-[11px] font-medium text-clear-ink">
+                        Key saved in this browser — {keyDraft.trim().length} characters.
+                      </span>
+                    )}
                   </div>
                 )}
                 {!hasApiKey() && !keyDraft && (
@@ -489,7 +493,7 @@ export function ScanPage() {
         <Card className="animate-rise">
           <CardHead title="Pipeline" hint="What runs, in order, once you press analyse" />
           <ol className="flex flex-col p-2">
-            {STAGES.map((s, i) => {
+            {stagesFor(engineId).map((s, i) => {
               const state = !busy ? 'idle' : i < stage ? 'done' : i === stage ? 'active' : 'idle';
               return (
                 <li
