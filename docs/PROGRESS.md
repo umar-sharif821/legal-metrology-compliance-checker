@@ -3,7 +3,7 @@
 > Single source of truth for project state. Updated by `/handoff`, read by `/pickup`.
 > Keep it terse. This file is read in full every session — every line costs tokens.
 
-**Last updated:** 2026-09-10 · **Sessions completed:** 3 · **Current sprint:** 1 (paused for the demo detour)
+**Last updated:** 2026-09-10 · **Sessions completed:** 4 · **Current sprint:** 1 (paused for the demo detour)
 
 ---
 
@@ -15,18 +15,32 @@
 > throwaway scaffolding and must never be promoted into `packages/rule-engine-ts` or
 > `rulepack/*.json`.
 
-**Current demo phase:** `D-1` — shell on the phone (camera preview + one still capture through ML Kit)
+**Current demo phase:** `D-2` — the core loop (live OCR, freeze, verdict screen with citations)
 **Status:** not started
-**Blocked on:** **the device.** `D-1` onwards need the OnePlus Nord 4 connected by USB with
-developer options and USB debugging on. `adb devices` currently lists nothing.
+**Blocked on:** nothing.
 
-`D-0` is done: debug APK builds green from cold (19m 39s), 35 unit tests pass, all nine
-root gates pass. Start `D-1` with `cd mobile && npx expo run:android --device`.
+`D-1` is done and verified on the real device. ML Kit's native binding works under the
+New Architecture — the last unproven assumption in the stack is now proven, and route B
+(`@infinitered/...`) stays in reserve, unused.
+
+Measured on the Nord 4, scanning a real snack packet:
+
+| framing | capture | OCR | lines |
+|---|---|---|---|
+| whole pack | 380 ms | 662 ms | 63 |
+| label panel | 370 ms | 455 ms | 34 |
+
+The label-panel capture read `NET QUANTITY`, `150 g`, `DATE OF MANUFACTURE:` — the
+mandatory declarations do come through at arm's length.
+
+Rebuild and run with `cd mobile && npx expo run:android --device CPH2661`. **The device
+name is `CPH2661`, not the adb serial** — `expo run:android --device <serial>` fails with
+`Could not find device with name`. Incremental Gradle is ~52 s; the JS bundle ~9 s.
 
 Demo phases, in priority order. After each one there is still a demo you could give.
 
 - [x] `D-0` Foundations — scaffold, Gradle build green, rule pack, evaluator, unit tests · *no device*
-- [ ] `D-1` Shell on the phone — one still capture reaches ML Kit and prints text
+- [x] `D-1` Shell on the phone — one still capture reaches ML Kit and prints text
 - [ ] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
 - [ ] `D-3` Field trial — tune lexicons/shapes in JSON against ten real packets
 - [ ] `D-4` Honest degradation — insufficient evidence, coach hints, aeroplane mode
@@ -56,10 +70,8 @@ Nine gates now run green: `npm run format:check`, `npm run lint`, `npm run typec
 Setup on a fresh clone: `npm install` and `python -m pip install -r requirements-dev.txt`.
 
 **Needed from user:**
-- **BLOCKING `D-1`: connect the OnePlus Nord 4 by USB** with developer options and USB
-  debugging on, and accept the RSA prompt on the phone. `adb devices` must list it.
-- Android **version** on the Nord 4 still unknown. Model is confirmed (OnePlus Nord 4,
-  Dimensity 7300) — a fair mid-range stand-in for the plan §16 performance target.
+- **Keep the Nord 4 connected.** `D-2`…`D-5` all need it. Device name `CPH2661`,
+  serial `bac3856a`, camera permission already granted to `com.sih26034.lmscan`.
 - A Legal Metrology officer / law student contact for the rule-pack review (plan §4,
   needed before Sprint 6, ideally started in Sprint 1). **Not yet asked.**
 - Docker is not installed on this machine (`docker --version` fails). `T-1.11` needs
@@ -102,6 +114,12 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-10` `pytest` was failing at HEAD with `ModuleNotFoundError: No module named 'backend'` — the repo root was not on `sys.path`. Fixed with `pythonpath = ["."]` in `[tool.pytest.ini_options]`. Pre-existing, unrelated to the demo; the "nine gates green" claim was stale.
 - `2026-09-10` Demo extraction distinguishes *absent* from *malformed* by giving a field two shapes: a loose one used once an anchor has identified the line, and a strict one used for unanchored recovery and by the checks. Without this, `Net Qty: 250` reports as a missing declaration rather than one lacking a standard unit.
 - `2026-09-10` Demo live-OCR route: VisionCamera preview + throttled `takeSnapshot()` → `@react-native-ml-kit/text-recognition`. No worklets, no frame-processor plugin — that alignment work belongs to `T-1.12`. All fallback routes' native deps go into the *same* first Gradle build so switching is JS-only.
+- `2026-09-10` **`D-1` done and verified on device.** ML Kit's legacy `NativeModules` binding works under RN 0.86 bridgeless / New Architecture on Android 16. Route A stands; routes B and C are never needed. Do not revisit.
+- `2026-09-10` **Device is a Snapdragon 7+ Gen 3 (`ro.soc.model=SM7675`, QTI), Android 16 / API 36 — not the Dimensity 7300 previously recorded.** A 7+ Gen 3 is materially quicker than a 7300, so this phone is a *weaker* mid-range stand-in than the board assumed. Every §16 latency number quoted from it must name the chip (P8).
+- `2026-09-10` `expo run:android --device` takes the **device name** (`CPH2661`), not the adb serial; a serial fails with `Could not find device with name`.
+- `2026-09-10` ML Kit box coordinates arrive in the **capture's own pixel frame** — no transposition needed (measured: extent 4083×3070 against a 4096×3072 capture). `D-2`'s overlay still needs (a) a **clamp**, since an axis-aligned box around a tilted line can overhang the edge (one capture reported bottom 3086 against height 3072), and (b) a **rotation**, since the capture is landscape while the preview is portrait.
+- `2026-09-10` Android 15+ forces edge-to-edge, so the app's top banner takes its inset from `StatusBar.currentHeight` (plain JS). `react-native-safe-area-context` was rejected: a native dependency costing a full Gradle rebuild mid-demo for one number the platform already exposes. RN's own `SafeAreaView` is deprecated and warns.
+- `2026-09-10` Correction to the `D-0` note below: `mobile/` is **ESLint**-ignored only. Prettier ignores just `mobile/android/` and `mobile/.expo/`, so **mobile sources are format-gated** by `npm run format:check`. D-0's files passed by luck. Run `npx prettier --write` on new mobile files before committing.
 
 ---
 
@@ -130,6 +148,13 @@ Noticed but deliberately out of scope for now. Do not action without asking.
   no task on the board creates a schema for it. `T-1.9` compares verdicts byte-identically,
   which will catch divergence but not a shape both evaluators get wrong together. Decide
   before `T-1.7` whether the envelope gets its own schema.
+- **Anchor–value column offset seen on the first real packet** (`D-1`, Bhujialalji Navratna
+  Mix). The label panel prints anchors in a left column and values in a right column, and
+  the rows do not line up: `150 g` sits vertically level with `DATE OF MANUFACTURE`, not
+  with `NET QUANTITY`. Naive "value is the nearest line below the anchor" association will
+  mis-attribute. This is exactly what `T-2.3` exists for; `D-3` will meet it first. Do not
+  tune the heuristic against this one packet — it is one sample, and P3 says a wrong
+  attribution is worse than none.
 - `rulepack/CHANGELOG.md` is in the plan §18 layout ("every clause change, dated, with
   reviewer") but no task creates it. Fold it into `T-1.3`, which writes the first pack.
 

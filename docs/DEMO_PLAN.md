@@ -171,8 +171,8 @@ Mirrored in `docs/PROGRESS.md` under **Now**, which is the source of truth. Upda
 | Phase | Goal | Device? | Status |
 |---|---|---|---|
 | **D-0** | Foundations — app scaffold, native build, rule pack, evaluator, tests | no | `[x]` done |
-| **D-1** | Shell on the phone — one still capture reaches ML Kit and prints text | **yes** | `[>]` next |
-| **D-2** | The core loop — live OCR, freeze, verdict screen with citations | **yes** | `[ ]` |
+| **D-1** | Shell on the phone — one still capture reaches ML Kit and prints text | **yes** | `[x]` done |
+| **D-2** | The core loop — live OCR, freeze, verdict screen with citations | **yes** | `[>]` next |
 | **D-3** | Field trial — tune against real packets until scans behave | **yes** | `[ ]` |
 | **D-4** | Honest degradation — insufficient evidence, coach hints, offline proof | **yes** | `[ ]` |
 | **D-5** | Polish and rehearsal — icon, APK, demo script, two run-throughs | **yes** | `[ ]` |

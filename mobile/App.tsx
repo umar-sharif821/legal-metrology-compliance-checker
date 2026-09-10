@@ -1,41 +1,51 @@
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, Text, View } from 'react-native';
+import { StatusBar as RNStatusBar, StyleSheet, Text, View } from 'react-native';
 
+import ScanScreen from './src/camera/ScanScreen';
 import { DEMO_PACK } from './src/rulepack/pack';
 
 /**
- * Placeholder shell for phase D-0.
+ * App shell.
  *
- * Its only job is to prove the rule pack compiles on the device: if `pack.ts` throws
- * on a malformed pack, it throws here, at startup, in front of a person — rather than
- * halfway through a scan. The camera screen arrives in D-1.
+ * The `DEMO_PACK` import is load-bearing beyond the banner it renders: `pack.ts` compiles
+ * and validates the pack at module scope, so a malformed pack throws here, at startup, in
+ * front of a person — rather than halfway through a scan.
+ *
+ * The banner itself is P9 in one line. The pack is unreviewed, so nothing this app says
+ * is more than advisory, and the screen says so continuously rather than in a disclaimer
+ * someone has to go looking for.
+ *
+ * The inset is taken from `StatusBar.currentHeight` rather than a safe-area provider:
+ * Android 15 forces edge-to-edge, so the banner would otherwise sit under the status bar,
+ * and `react-native-safe-area-context` is a native dependency that would cost a full
+ * Gradle rebuild mid-demo for a single number this platform already exposes to JS.
  */
 export default function App() {
-  const m = DEMO_PACK.metadata;
+  const meta = DEMO_PACK.metadata;
   return (
-    <View style={styles.container}>
+    <View style={styles.root}>
       <StatusBar style="light" />
-      <Text style={styles.title}>LM Scan</Text>
-      <Text style={styles.sub}>{m.statuteLong}</Text>
-      <Text style={styles.meta}>
-        rule pack {m.packId} v{m.packVersion} · {DEMO_PACK.fields.length} declarations ·{' '}
-        {DEMO_PACK.declarations.length} checks
-      </Text>
-      <Text style={styles.warn}>{m.provenanceStatus} — findings are advisory only</Text>
+      <View style={[styles.banner, { paddingTop: RNStatusBar.currentHeight ?? 0 }]}>
+        <Text style={styles.bannerText} numberOfLines={1}>
+          {meta.packId} v{meta.packVersion} · {meta.provenanceStatus} — advisory only
+        </Text>
+      </View>
+      <View style={styles.scan}>
+        <ScanScreen />
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#0B1220',
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 24,
+  root: { flex: 1, backgroundColor: '#0B1220' },
+  banner: { backgroundColor: '#1E293B' },
+  bannerText: {
+    color: '#FBBF24',
+    fontSize: 11,
+    textAlign: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
   },
-  title: { color: '#F8FAFC', fontSize: 34, fontWeight: '700' },
-  sub: { color: '#94A3B8', fontSize: 14, marginTop: 8, textAlign: 'center' },
-  meta: { color: '#64748B', fontSize: 12, marginTop: 20, textAlign: 'center' },
-  warn: { color: '#FBBF24', fontSize: 12, marginTop: 12, textAlign: 'center' },
+  scan: { flex: 1 },
 });
