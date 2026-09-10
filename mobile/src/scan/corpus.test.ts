@@ -44,8 +44,19 @@ import type { CaptureSource } from './types';
 
 const CORPUS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'field-trial');
 
-/** The ten packets D-3 calls for. Named here so the shortfall is visible in the report. */
-const TARGET_PACKETS = 10;
+/**
+ * How many records `D-3` will ever hold, named here so the shortfall is visible in the run.
+ *
+ * **Four, not the plan's ten** — user decision, 2026-09-10: only two packaged products are
+ * available to photograph. The corpus is therefore two products in two capture kinds
+ * (`docs/PROGRESS.md`, Decisions log). The plan's ten was a round number, and the board's
+ * real stopping rule was always *when a new packet stops breaking something new*; this is
+ * that rule meeting the supply of packets rather than a target being quietly lowered.
+ *
+ * The consequence is permanent and belongs with every claim: nothing here is tuned against
+ * a corpus, and no accuracy figure drawn from it generalises past two labels (P8).
+ */
+const TARGET_PACKETS = 4;
 
 /** Every provenance a record may declare. Kept in step with `CaptureSource` by the compiler. */
 const KNOWN_SOURCES: readonly CaptureSource[] = ['viewfinder', 'still', 'upload'];

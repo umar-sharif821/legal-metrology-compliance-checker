@@ -105,9 +105,9 @@ typecheck, lint and 131 tests pass. The device-facing part is one line in the re
 new record will be written as `/3` with a `readings` array. Worth one glance at the JSON the
 next time a packet is recorded, which is `D-3`'s next action anyway.
 
-**Next phase to actually start:** **`D-3`** — resume the field trial at 2/10. It is the only
-thing that makes `A-0`'s table say anything, it is what `A-4`'s thresholds are waiting on,
-and it must be finished before `D-5` regardless. After `D-3`: `D-4`, then `D-5`.
+**Next phase to actually start:** **`D-3`, re-scoped to 4 records** — see below. Two
+captures remain, both on packets already in hand; neither needs anything bought. Then
+`D-4`, then `D-5`.
 
 **`A-4` (done last session), in the lines that still matter.** Stage B pairs an anchor with
 its value by geometry — right on the same row, or below in the same column — and refuses
@@ -123,16 +123,40 @@ refusing.** The thresholds are sized from typography and merely *checked* agains
 captures of one packet: **that is not corpus tuning and must not be described as it** (P8).
 They become real numbers when `D-3` has variety.
 
-**`D-3` is paused at 2/10 by user decision, and is now the next thing to do.** It must be
-resumed before `D-5`. **Judging a packet is not recording it** — packet 3 was uploaded and
-judged three sessions ago but never recorded, so the corpus is still at 2. The remaining
-work is 8 more packets *and* a hand-written `expect` block for each; **the `expect` blocks
-are the slow half, not the photography.** **Variety, not count:** both current records are
-the same product, so the pack is tuned to one label. Ten is a round number from the plan —
-the real stopping rule is *when a new packet stops breaking something new*. Photograph the
-remaining packets with the stock camera app, then feed each in with *Use a photo from the
-gallery* and hit **Record**. `mobile/field-trial/README.md` has the flow, the `source` table
-and (new) the `readings` shape.
+**`D-3` is re-scoped to 4 records, not 10 — user decision, 2026-09-10. Do not re-open it.**
+Only two packaged products are available to photograph. The plan's ten was a round number
+and the board's real stopping rule was always *when a new packet stops breaking something
+new*; this is that rule meeting the supply of packets. **Two captures remain, both on
+packets already in hand, and neither needs anything bought:**
+
+1. **Re-photograph the Lays packet (records 001/002) with the stock camera app and record
+   it as an `upload`.** Highest value left in the project. It is the *only* thing that
+   answers `A-0`'s own question — was the field trial's damage the capture or the engine?
+   Watch record 002's `MIRP RS. 20/- (NCL. OF 42L TAYES)`: if a proper photo reads it
+   correctly, ML Kit was never the problem and no cloud escalation ever needs revisiting.
+2. **Record packet 3 (Bhujialalji Navratna Mix), already photographed and in the gallery.**
+   Costs one hand-written `expect` block and no photography. It is the first packet `A-4`'s
+   association rule was not written against, and its panel (`NET QUANTITY 150 g`, `₹65.00`,
+   `15JUL.2026`) exercises that path immediately.
+
+Then `D-3` is **closed at 4/4** — 2 products, both capture kinds — and `D-4` follows.
+`mobile/src/scan/corpus.test.ts`'s `TARGET_PACKETS` is already 4.
+
+**The permanent consequence, which must travel with every claim from here (P8).** The
+corpus tops out at **two labels**. So:
+
+- **`A-4`'s spatial thresholds will never be corpus-tuned.** They were sized from typography
+  and *checked* against a handful of captures of two products. That was always the honest
+  description; what changes is that it is now **final**, not a temporary state pending
+  `D-3`. `DEMO_PLAN` §4 A-4's requirement — *"chosen against the field-trial corpus, never
+  against a single packet"* — is satisfied only in the weak sense of two packets, and the
+  pitch must not imply otherwise.
+- **No accuracy figure from `A-0`'s table generalises.** Two products is a sanity check,
+  not a measurement of the engine. The report already prints the capture mix and its own
+  caveats; that language is now permanent and must not be softened for `D-5`.
+- **`D-5` carries real demo risk.** An unseen packet in front of judges has been validated
+  against two labels. Expect the demo to be run on a known packet, and expect a question
+  about generalisation — answer it with the number of labels, not with a percentage.
 
 **`C-0` is done and fully verified on the Nord 4** — full-quality still, image upload,
 viewfinder demoted to framing feedback, nav-bar inset fixed on both screens (`NAV_BAR_INSET`
@@ -287,7 +311,7 @@ Demo phases, in priority order. After each one there is still a demo you could g
 - [x] `D-0` Foundations — scaffold, Gradle build green, rule pack, evaluator, unit tests · *no device*
 - [x] `D-1` Shell on the phone — one still capture reaches ML Kit and prints text
 - [x] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
-- [>] `D-3` Field trial — 2/10 recorded; **paused by user decision, and now the next phase** — must be resumed before `D-5` ← **resume here**
+- [>] `D-3` Field trial — **2/4 recorded; re-scoped from ten to four (user, 2026-09-10 — only two products available)**. Two captures left, both on packets in hand ← **resume here**
 - [x] `C-0` Capture quality — full-quality still, image upload, preview → viewfinder · **fully verified on device**
 - [x] `A-4` Spatial anchor-value association (`T-2.3` pulled forward) · *no device* — acceptance test passed; thresholds not yet corpus-tuned
 - [x] `A-0` Make accuracy measurable — `OCRProvider`, per-provider corpus · *no device* — table prints; **cannot yet separate capture from engine (needs a second-source record, see Parked)**
@@ -324,23 +348,17 @@ Setup on a fresh clone: `npm install` and `python -m pip install -r requirements
   `T-1.11`, but it is off the critical path.
 - **Keep the Nord 4 connected.** `D-3`…`D-5` all need it. Device name `CPH2661`,
   serial `bac3856a`, camera permission already granted to `com.sih26034.lmscan`.
-- **Packet 3 (Bhujialalji Navratna Mix) is photographed, framed well and already in the
-  gallery** — see **Now**. It has been uploaded and judged but not recorded, because a
-  record reds the suite until a person writes its `expect` block. **Decide whether to record
-  it**; nothing else is needed to. **This is now the cheapest test of `A-4` against a packet
-  the rule was not written on** — its panel reads `NET QUANTITY 150 g` and `₹65.00`, so it
-  will exercise the association path immediately.
-- **Eight more packets for `D-3`, and this is now cheap.** Photograph them with the stock
-  camera app 15–20 cm from the panel, then feed each in via the gallery and hit Record.
-  LMPC covers *any* packaged commodity — toothpaste, soap, shampoo, tea, salt, atta, oil,
-  biscuits, noodles, a medicine box all qualify. **Variety is the point**, since the wording
-  varies (`Net Wt.`/`Net Qty`/`Quantity`, g/ml/kg/L, MRP phrasings, one- vs two-column
-  panels). Ten captures of one packet would tune the pack to that packet.
-- **Re-photograph the Lays packet (records 001/002) with the stock camera and record it as
-  an `upload`.** One packet, one photo, one `expect` block. It is the only thing standing
-  between `A-0`'s table and the question `A-0` was set: *was the field trial's damage the
-  capture or the engine?* Worth doing first among the eight, because it also answers whether
-  a cloud engine ever needs to be considered again.
+- **Two captures close `D-3`, and that is all that is being asked for.** Both are packets
+  already in hand; nothing needs buying. Keep the Nord 4 connected for them.
+  1. **Re-photograph the Lays packet** (records 001/002) with the stock camera app, ~15–20 cm
+     from the declarations panel, then feed it in via *Use a photo from the gallery* and hit
+     **Record**. This answers `A-0`'s capture-vs-engine question and is the single
+     highest-value capture left.
+  2. **Record packet 3 (Bhujialalji Navratna Mix)**, already photographed and in the gallery.
+     Judged but never recorded, because a record reds the suite until a person writes its
+     `expect` block — which is your call, and is the actual work.
+- ~~Eight more packets for `D-3`~~ — **dropped 2026-09-10: only two products are available.**
+  Do not re-raise it; the consequence is recorded in the Decisions log.
 - Still wanted: a packet with a declaration *genuinely* present but defective. The evidence
   highlight is now proven (see **Now**), but on a *false* flag; a real defect would be better.
 - A Legal Metrology officer / law student contact for the rule-pack review (plan §4,
@@ -378,6 +396,7 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-10` **No weighting constant for P3.** "A false flag costs more than a miss" is expressed as *precision is the headline and the sort key*, with recall reported beside it and not deciding. A tuned cost ratio would be a number the method cannot support (P4).
 - `2026-09-10` **Correctly withholding a value is `withheld`, never scored as a hit**, and **a provider with no reading is `not measured`, never zero** (`precision`/`recall` are `null`). Untried and failed are different claims.
 - `2026-09-10` **No registry of OCR *implementations*.** `PROVIDERS` is descriptors only (id, label, note); `mlKitProvider` is a plain value in `camera/ocr.ts`. The demo ships one engine and scores candidates by host replay — a one-entry map would imply a plan that does not exist.
+- `2026-09-10` **`D-3` is four packets, not ten** — only two packaged products are available to the user. The corpus is two products in two capture kinds, and the stopping rule was always *when a new packet stops breaking something new*, not the round number. **Permanent consequence:** `A-4`'s thresholds are checked, never corpus-tuned, and no `A-0` figure generalises past two labels. Say so in the pitch (P8); do not re-open the ten-packet target.
 - `2026-09-10` `expo-image-picker` is installed but **deliberately not listed in `app.json` plugins**. Its Android half only adds `RECORD_AUDIO` and crop-tool colours; `launchImageLibraryAsync` uses the Android photo picker and needs no runtime permission. Registering it would make the app request a microphone it never uses.
 - `2026-09-10` Beat 3 is no longer "verdict in under a second". Capture→verdict is ~1.6 s measured, and the demo says so. What survives is the claim that mattered: the image on screen is exactly the image the verdict was read from.
 - `2026-09-10` Rule-pack schema is Draft 2020-12, `schema_version: "2.0"`, in `rulepack/schema/rulepack.schema.json`. Top-level keys: `metadata`, `fields`, `applicability_gates`, `declarations`, `geometry_rules`, `tables`, `lexicons`.
@@ -475,13 +494,6 @@ Append-only. One line each. Never re-litigate a line that is already here.
 ## Parked
 
 Noticed but deliberately out of scope for now. Do not action without asking.
-
-- **The A-0 table cannot yet separate the capture from the engine.** Both records are
-  `viewfinder`, so the plan's first question for A-0 — *was the field trial's damage the
-  capture or the engine?* — is unanswerable from the corpus. It needs the **Lays** packet
-  (records 001/002) re-photographed with the stock camera and recorded as an `upload`, then
-  the two rows compared; watch record 002's `MIRP RS. 20/- (NCL. OF 42L TAYES)`. One packet,
-  one photo, one `expect` block — do it as part of `D-3`.
 
 - **The field-trial JPEGs are gitignored, and that forecloses future scoring.** A candidate
   OCR engine can only be replayed on a machine that still holds the images. Do not clear the
