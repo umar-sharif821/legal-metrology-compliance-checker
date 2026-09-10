@@ -37,12 +37,25 @@
       "min_text_height_fraction": 0.012,
       "min_text_coverage": 0.02,
       "max_edge_touch_fraction": 0.34,
-      "unscored": ["blur", "glare"]
+      "unscored": [
+        "blur",
+        "glare"
+      ]
     }
   },
-
   "tables": {
-    "units_mass": ["g", "gm", "gms", "gram", "grams", "kg", "kgs", "kilogram", "kilograms", "mg"],
+    "units_mass": [
+      "g",
+      "gm",
+      "gms",
+      "gram",
+      "grams",
+      "kg",
+      "kgs",
+      "kilogram",
+      "kilograms",
+      "mg"
+    ],
     "units_volume": [
       "ml",
       "mls",
@@ -71,7 +84,13 @@
       "tablet",
       "tablets"
     ],
-    "currency_markers": ["₹", "rs", "rs.", "inr", "rupees"],
+    "currency_markers": [
+      "₹",
+      "rs",
+      "rs.",
+      "inr",
+      "rupees"
+    ],
     "month_names": [
       "jan",
       "feb",
@@ -88,7 +107,6 @@
       "dec"
     ]
   },
-
   "shapes": {
     "quantity_loose": {
       "description": "A number with whatever word follows it. Used ONLY after an anchor has already identified the line as the quantity declaration, so that '250' with no unit is still recovered — and can then fail the standard-unit check rather than being reported as simply absent.",
@@ -124,9 +142,13 @@
       "description": "A 6-digit Indian PIN code, or an address keyword. Weak by design — this field is the least reliably extracted of the six.",
       "pattern": "\\b[1-9][0-9]{5}\\b|\\b(?:plot|survey|khasra|gala|unit|shed|road|rd|street|st|lane|marg|nagar|colony|sector|phase|industrial|estate|dist|district|taluka|tehsil|pin|pincode|india)\\b",
       "flags": "i"
+    },
+    "commodity_generic_name": {
+      "description": "A short, comma-free, digit-free line naming a generic commodity. Used ONLY for unanchored recovery of the commodity name, where no printed label exists. WHY THIS EXISTS. Rule 6(1) requires the common or generic name, and real packets print it as the prominent line under the brand - 'Sweet Lassi', 'Navratna Mix', 'Refined Sunflower Oil' - almost never behind a 'Product Name:' label. Requiring a label meant this declaration was reported missing on virtually every genuine package while sitting legibly in the OCR output, which is a false flag against the manufacturer and the most expensive kind of error this tool can make (P3). HOW THE FALSE-POSITIVE RISK IS HELD DOWN, since this field takes the whole line verbatim and has no other shape to catch a mistake: the generic noun must END the line, because Indian commodity names are '<qualifier> <noun>' - sunflower OIL, navratna MIX - while a sentence that merely mentions a commodity carries the word mid-clause (a real field-trial capture produced 'know the specifhc type of oil used an ts' before this rule); the line must be letters and spaces only - no digits, no commas - which excludes ingredient lists, nutrition rows and addresses; it must be at most about sixty characters; and it must not contain any of the words that mark it as a different declaration or a legal notice. The term list is generic nouns, not brands. HONESTY LIMIT: the term list is hand-written from Indian retail categories and has NOT been swept against a corpus (P8). A commodity whose generic name is absent from it is still reported not found, which is the safe direction. Extend the list from the gold set rather than from memory.",
+      "flags": "i",
+      "pattern": "^(?!.*(?:ingredient|nutrition|allergen|storage|serving|energy|protein|carbohydrate|sodium|contains|manufactured|marketed|packed|importer|customer|consumer|batch|best before|use by|mrp|net\\s*(?:qty|quantity|wt)|inclusive|licence|lic\\.?\\s*no|product\\s*name|commodity|generic\\s*name))[a-z][a-z &'.\\-]{0,30}?\\b(biscuits?|cookies|rusk|lassi|namkeen|bhujia|mixture|mix|masala|noodles|vermicelli|atta|maida|besan|flour|rice|dal|poha|papad|chips|wafers?|candy|chocolates?|tea|coffee|juice|beverage|water|milk|curd|paneer|butter|ghee|cheese|cream|oil|salt|sugar|jaggery|honey|jam|ketchup|sauce|pickle|spices?|snacks?|soap|shampoo|detergent|toothpaste|powder|drink|sweets?)\\.?$"
     }
   },
-
   "lexicons": {
     "note": "Anchor terms are matched case-insensitively against normalised OCR lines, with a word boundary required only on the sides where the anchor itself ends in a letter or digit. Stage A takes the value from the anchor's own line. Stage B (since A-4) looks for it where it is printed — to the right of the anchor on the same row, or below it in the same column — and no longer by position in the OCR line list. See metadata.spatial_association for the bounds and scan/associate.ts for how they are used.",
     "manufacturer_address": [
@@ -199,7 +221,6 @@
       "contact us"
     ]
   },
-
   "fields": [
     {
       "id": "manufacturer_address",
@@ -221,15 +242,15 @@
       "label": "Common or generic name of the commodity",
       "short_label": "Commodity name",
       "anchors_ref": "commodity_name",
-      "value_shape": null,
+      "value_shape": "commodity_generic_name",
       "anchor_remainder_is_value": true,
       "anchor_must_be_labelled": true,
       "anchor_must_be_labelled_note": "TRUE on measured evidence, not on principle. On the device 2026-09-10 (Bhujialalji Navratna Mix) the bare anchor 'product' produced two HIGH-confidence false commodity names out of ordinary sentences: 'product of india' gave 'of india', and 'this product is made in a facility that...' gave 'is made in a facility that'. Neither was an OCR error - both lines were read correctly and the anchor was simply an English word in running text. Because this field takes the anchor remainder verbatim there is no shape to catch the mistake, so the anchor itself must look like a printed label: at the start of its line, and followed by a separator or by nothing. ACCEPTED COST (P3): a panel printed 'Product Name Navratna Mix' with no punctuation is no longer recovered and is reported not found, raising a rescan advisory instead of naming the commodity 'of india'. A miss is cheaper than a confident falsehood.",
       "anchored_value_shape": null,
-      "unanchored_recovery": false,
+      "unanchored_recovery": true,
       "value_presentation": "whole_line",
       "value_may_span_lines": 1,
-      "extraction_note": "Often the largest text on the panel with no anchor at all. Anchored recovery only; unanchored recovery is out of demo scope."
+      "extraction_note": "Often the largest text on the panel with no anchor at all. Recovered by a printed label first; failing that, by a generic-commodity shape over lines that cannot be an ingredient list, a nutrition row or an address. A stage-C hit here is reported as shape-only on screen, so a reader can see it was found without a label."
     },
     {
       "id": "net_quantity",
@@ -284,12 +305,13 @@
       "extraction_note": "Shape is distinctive enough to recover without an anchor."
     }
   ],
-
   "declarations": [
     {
       "id": "LMPC-6-1-MFR-PRESENT",
       "field": "manufacturer_address",
-      "check": { "kind": "field_present" },
+      "check": {
+        "kind": "field_present"
+      },
       "clause": {
         "rule": "6",
         "sub_clause": "(1)(a)",
@@ -306,7 +328,9 @@
     {
       "id": "LMPC-6-1-NAME-PRESENT",
       "field": "commodity_name",
-      "check": { "kind": "field_present" },
+      "check": {
+        "kind": "field_present"
+      },
       "clause": {
         "rule": "6",
         "sub_clause": "(1)(b)",
@@ -323,7 +347,9 @@
     {
       "id": "LMPC-6-1-NETQTY-PRESENT",
       "field": "net_quantity",
-      "check": { "kind": "field_present" },
+      "check": {
+        "kind": "field_present"
+      },
       "clause": {
         "rule": "6",
         "sub_clause": "(1)(c)",
@@ -340,7 +366,10 @@
     {
       "id": "LMPC-6-1-NETQTY-UNIT",
       "field": "net_quantity",
-      "check": { "kind": "value_wellformed", "shape": "quantity_with_unit" },
+      "check": {
+        "kind": "value_wellformed",
+        "shape": "quantity_with_unit"
+      },
       "clause": {
         "rule": "6",
         "sub_clause": "(1)(c)",
@@ -357,7 +386,9 @@
     {
       "id": "LMPC-6-1-MRP-PRESENT",
       "field": "retail_sale_price",
-      "check": { "kind": "field_present" },
+      "check": {
+        "kind": "field_present"
+      },
       "clause": {
         "rule": "6",
         "sub_clause": "(1)(e)",
@@ -414,7 +445,9 @@
     {
       "id": "LMPC-6-1-DATE-PRESENT",
       "field": "date_of_packing",
-      "check": { "kind": "field_present" },
+      "check": {
+        "kind": "field_present"
+      },
       "clause": {
         "rule": "6",
         "sub_clause": "(1)(d)",
@@ -437,7 +470,9 @@
     {
       "id": "LMPC-6-1-CARE-PRESENT",
       "field": "consumer_care",
-      "check": { "kind": "field_present" },
+      "check": {
+        "kind": "field_present"
+      },
       "clause": {
         "rule": "6",
         "sub_clause": "(1)(f)",
