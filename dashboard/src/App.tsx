@@ -8,6 +8,7 @@ import { ScansPage } from './pages/ScansPage';
 import { ReportPage } from './pages/ReportPage';
 import { RulePackPage } from './pages/RulePackPage';
 import { NotFound } from './pages/NotFound';
+import { HowItWorks } from './pages/HowItWorks';
 
 export default function App() {
   return (
@@ -21,6 +22,7 @@ export default function App() {
               <Route path="/scans" element={<ScansPage />} />
               <Route path="/scans/:id" element={<ReportPage />} />
               <Route path="/rulepack" element={<RulePackPage />} />
+              <Route path="/how" element={<HowItWorks />} />
               <Route path="*" element={<NotFound />} />
             </Routes>
           </Layout>

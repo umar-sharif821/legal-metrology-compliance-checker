@@ -12,6 +12,7 @@ import { NavLink, useLocation } from 'react-router-dom';
 import {
   IconBook,
   IconClose,
+  IconHelp,
   IconGrid,
   IconList,
   IconMenu,
@@ -27,6 +28,7 @@ const NAV = [
   { to: '/scan', label: 'New scan', icon: IconScan, end: false },
   { to: '/scans', label: 'Scan explorer', icon: IconList, end: false },
   { to: '/rulepack', label: 'Rule pack', icon: IconBook, end: false },
+  { to: '/how', label: 'How it works', icon: IconHelp, end: false },
 ] as const;
 
 function NavItems({ onNavigate }: { onNavigate?: () => void }) {

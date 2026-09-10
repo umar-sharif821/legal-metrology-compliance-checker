@@ -51,6 +51,20 @@ const STAGES: readonly { id: Stage; label: string; detail: string }[] = [
 
 const MAX_BYTES = 12 * 1024 * 1024;
 
+/**
+ * Specimen panels bundled with the app.
+ *
+ * They exist so a demonstration does not depend on a lucky photograph, and they are not
+ * a shortcut: each one is fetched as a file and pushed through exactly the same
+ * recognition, extraction and evaluation as anything you upload. Nothing about their
+ * verdicts is stored, and none is named after its outcome — the tool has to find it.
+ */
+const SPECIMENS = [
+  { src: '/specimens/spec1.png', label: 'Biscuits', detail: 'Full rear panel' },
+  { src: '/specimens/spec2.png', label: 'Edible oil', detail: 'Full rear panel' },
+  { src: '/specimens/spec3.png', label: 'Shelf photo', detail: 'Taken from a distance' },
+] as const;
+
 export function ScanPage() {
   const navigate = useNavigate();
   const toast = useToast();
@@ -104,6 +118,20 @@ export function ScanPage() {
       setPreview(URL.createObjectURL(f));
     },
     [preview],
+  );
+
+  const loadSpecimen = useCallback(
+    async (src: string) => {
+      setError(null);
+      try {
+        const res = await fetch(src);
+        const blob = await res.blob();
+        accept(new File([blob], src.split('/').pop() ?? 'specimen.png', { type: 'image/png' }));
+      } catch {
+        setError('That specimen could not be loaded.');
+      }
+    },
+    [accept],
   );
 
   const startCamera = useCallback(async () => {
@@ -287,6 +315,37 @@ export function ScanPage() {
                   <IconCamera width={15} height={15} />
                   Use camera
                 </Button>
+              </div>
+            </div>
+          )}
+
+          {!camera && (
+            <div className="mt-4">
+              <p className="text-[11.5px] font-medium text-ink-500">
+                No packet to hand? Try a specimen panel — it runs through the same pipeline.
+              </p>
+              <div className="mt-2 grid grid-cols-3 gap-2">
+                {SPECIMENS.map((s) => (
+                  <button
+                    key={s.src}
+                    type="button"
+                    disabled={busy}
+                    onClick={() => void loadSpecimen(s.src)}
+                    className="group overflow-hidden rounded-lg border border-line-200 bg-canvas text-left transition-all hover:border-navy-500 hover:shadow-lift disabled:opacity-50"
+                  >
+                    <img
+                      src={s.src}
+                      alt=""
+                      className="block h-20 w-full bg-white object-cover object-top"
+                    />
+                    <span className="block border-t border-line-200 px-2 py-1.5">
+                      <span className="block text-[11.5px] font-medium text-ink-900">
+                        {s.label}
+                      </span>
+                      <span className="block text-[10.5px] text-ink-400">{s.detail}</span>
+                    </span>
+                  </button>
+                ))}
               </div>
             </div>
           )}
