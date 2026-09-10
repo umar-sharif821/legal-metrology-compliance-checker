@@ -51,7 +51,11 @@ missed. `NAV_BAR_INSET` now lives in `mobile/src/ui/layout.ts`, both screens imp
 `mobile/src/ui/layout.test.ts` fails the build if any `bottom:` offset in `mobile/src` omits
 it. **The guard was confirmed to fail on the old value before being kept.**
 
-**Next phase to actually start:** **`D-3`** — 2/10 packets recorded, and the flow now works.
+**Next phase to actually start:** **`D-3`** — **2/10 recorded**, and the flow now works.
+**Judging a packet is not recording it.** Packet 3 was uploaded and judged this session but
+never recorded, so the corpus is still at 2. The remaining work is 8 more packets *and* a
+hand-written `expect` block for each — the `expect` blocks are the slow half, not the
+photography.
 Photograph the remaining packets with the stock camera app, then feed each in with *Use a
 photo from the gallery* and hit **Record**. `mobile/field-trial/README.md` has the flow and
 the `source` table.
