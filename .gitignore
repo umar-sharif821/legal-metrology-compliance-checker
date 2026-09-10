@@ -51,3 +51,6 @@ eval/out/
 
 # tesseract.js caches language data into the working directory when run under Node
 /dashboard/eng.traineddata
+
+# OCR benchmark inputs are regenerated from bench/mk.html, not committed
+/dashboard/bench/*.png

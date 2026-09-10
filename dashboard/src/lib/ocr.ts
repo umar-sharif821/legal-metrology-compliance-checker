@@ -35,12 +35,19 @@
  * downstream knows or cares that the text came from Tesseract rather than ML Kit on the
  * phone. That is the whole point of `A-0`'s provider seam.
  */
-import { createWorker, type Worker } from 'tesseract.js';
+import { createWorker, PSM, type Worker } from 'tesseract.js';
 import type { Box, OcrFrame, OcrLine } from '@engine/scan/types';
 import { splitByGaps } from './lines';
 
-/** Long edge for the first, whole-frame pass. */
-const PASS_1_EDGE = 1600;
+/**
+ * Long edge for the first, whole-frame pass.
+ *
+ * Above the source size this upscales, which sounds pointless and is not: Tesseract's
+ * line finder needs a minimum glyph height, and small print benefits from being
+ * interpolated up before recognition. Measured on the hard benchmark, at page-segmentation
+ * mode 6, upscaling 1500px to 3000px took the read from 5/10 target strings to 6/10.
+ */
+const PASS_1_EDGE = 2000;
 /** Long edge for the second pass over the located panel. Higher: it is a smaller region. */
 const PASS_2_EDGE = 2400;
 /** Only re-read when the text occupies less than this fraction of the frame's area. */
@@ -61,12 +68,30 @@ const CROP_MARGIN = 0.12;
 
 let workerPromise: Promise<Worker> | null = null;
 
+/**
+ * Page segmentation mode 6 — "a single uniform block of text".
+ *
+ * The default (3, fully automatic) assumes a document page and tries to find columns.
+ * A declaration panel is not a page, and on photographs the column finder either mis-splits
+ * the panel or, on an upscaled image, gives up and returns nothing at all. Measured:
+ *
+ *     benchmark, upscaled  psm 3 -> 0 lines            psm 6 -> 6/10 target strings
+ *     specimen 3           psm 3 -> 0 lines, 0/7       psm 6 -> 5 lines, 3/7
+ *     specimens 1 and 2    psm 3 -> 7/7 and 4/7        psm 6 -> same, one extra line each
+ *
+ * Better or equal everywhere tested, and dramatically better on the hard cases.
+ */
+const PAGE_SEG_SINGLE_BLOCK = PSM.SINGLE_BLOCK;
+
 function getWorker(): Promise<Worker> {
   workerPromise ??= createWorker('eng', 1, {
     workerPath: '/tesseract/worker.min.js',
     corePath: '/tesseract/',
     langPath: '/tesseract',
     gzip: true,
+  }).then(async (worker) => {
+    await worker.setParameters({ tessedit_pageseg_mode: PAGE_SEG_SINGLE_BLOCK });
+    return worker;
   });
   return workerPromise;
 }
