@@ -17,6 +17,7 @@
  */
 import { createWorker, type Worker } from 'tesseract.js';
 import type { Box, OcrFrame, OcrLine } from '@engine/scan/types';
+import { splitByGaps } from './lines';
 
 /** Long edge, in pixels, that a photo is scaled to before recognition. */
 const MAX_EDGE = 1600;
@@ -106,9 +107,15 @@ function toBox(bbox: TessBBox | undefined): Box | null {
   return { x: bbox.x0, y: bbox.y0, width, height };
 }
 
+interface TessWord {
+  text?: string;
+  bbox?: TessBBox;
+}
+
 interface TessLine {
   text?: string;
   bbox?: TessBBox;
+  words?: TessWord[];
 }
 
 /**
@@ -138,9 +145,16 @@ function linesFrom(data: unknown): OcrLine[] {
   if (collected.length === 0 && Array.isArray(d.lines)) collected.push(...d.lines);
 
   if (collected.length > 0) {
-    return collected
-      .map((l) => ({ text: (l.text ?? '').trim(), box: toBox(l.bbox) }))
-      .filter((l) => l.text.length > 0);
+    // Each recognised line is re-checked against its own word geometry before being
+    // believed. Tesseract will merge text from opposite ends of a panel into one line,
+    // and an extractor cannot tell that from a real line — see `lines.ts` for the case
+    // that forced this.
+    return collected.flatMap((l) =>
+      splitByGaps(
+        l.text ?? '',
+        (l.words ?? []).map((w) => ({ text: w.text ?? '', box: toBox(w.bbox) })),
+      ).filter((line) => line.text.length > 0),
+    );
   }
 
   // Last resort: text with no geometry at all. Worth returning — the declarations can
