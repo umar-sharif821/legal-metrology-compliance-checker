@@ -21,7 +21,7 @@
 **Blocked on:** the user has only one packet. `D-3` cannot finish without eight or nine more.
 
 **All nine gates are green.** `npm test` was red on four `corpus.test.ts` failures from the
-first field trial; those are the four defects fixed this session (see below). Both records
+first field trial; those are the four defects fixed this session. Both records
 now replay to the verdict their reviewer expected. The next packet recorded will red the
 suite again until somebody writes its `expect` block — that is the mechanism working, not
 a breakage.
@@ -40,74 +40,36 @@ Record with the **Record** control on the verdict screen (`FieldTrialBar.tsx`) �
 packet, tap Record. It is its own file and its own strip of screen so `D-5` can delete it
 with one import and one element.
 
-### What D-3 measured, and what was done about it
+### What the first packet proved — the headline D-3 result
 
-Both records are the *same compliant packet* (Lay's/PepsiCo bhujia namkeen). It has all six
-declarations printed. **The app flagged it `ATTENTION` both times and every finding was
-false.** That is the P3 failure the demo exists to prevent, found on the first real packet.
-Four root causes were established; all four are now closed.
+Both records are the *same compliant packet* (Lay's/PepsiCo bhujia namkeen), which has all
+six declarations printed. **The app flagged it `ATTENTION` both times and every finding was
+false** — the exact P3 failure the demo exists to prevent, found on the first real packet.
+Four root causes, all now fixed; the rules they produced are in the decisions log
+(`2026-09-10`, the seven entries from "Anchors match on a boundary" onward). In short: a bare
+`indexOf` anchor match, Stage B pairing by list index with the boxes never read, shape-only
+recovery of `net_quantity` off an FSSAI category code, and a phrase check calling wording
+absent that OCR had merely garbled.
 
-1. **Anchor matching had no word boundary. FIXED (TS).** `findAnchorEnd` was a bare
-   `line.indexOf(anchor)`. The `commodity_name` lexicon holds `"product"`, the line read
-   `ingredients: cereal products (6779%)`, so it matched *inside* `products` and returned
-   `"s (6779%) (rice meal (44%),"` at **high** confidence. Now the boundary is required
-   only on the sides where the anchor itself ends in a letter or digit — so `product`
-   cannot match inside `products`, while `m.r.p.` and `net qty.` still match when they run
-   into following punctuation, which a `\b` regex would refuse. Every occurrence in a line
-   is tried, not just the first.
-2. **Stage B paired by list index with no geometry at all. GUARDED (TS), not solved.**
-   In record 001 it paired `NET QTY:` (idx 30, y=3365) with `Pee 100g` (idx 31, y=1697) —
-   the nutrition table's "Per 100 g", 1668 px away in another column. Stage B now requires
-   the candidate's bottom edge to fall below the anchor's top edge. That is the weakest
-   test that is still true by definition of what Stage B claims to do, and it introduces
-   **no distance threshold and no column test** — those are `T-2.3`, chosen against the
-   gold set, not against one packet. With no geometry from the engine it degrades to the
-   old list-order behaviour.
-3. **Stage C matched an FSSAI category code as a quantity. FIXED (JSON).** Record 002
-   returned `net_quantity = "15.1g"` out of the category code in
-   `PROPRIETARY FOOD--NAMKEEN(15.1)`. The pack's claim that this shape is "distinctive
-   enough to recover without an anchor" is what the trial falsified — a nutrition panel is
-   full of numbers with mass units. `net_quantity.unanchored_recovery` is now `false`.
-   The cost is accepted deliberately: a packet whose `Net Qty` anchor is missed now reports
-   the declaration not found, which is an advisory saying *rescan the panel*. That is
-   honest about what was read, where `15.1g` was a confident falsehood about what the label
-   says (P3, P4).
-4. **`LMPC-6-1-MRP-INCLUSIVE` was a false flag on OCR noise. FIXED — but not the way the
-   record proposed.** The packet does say "INCL. OF ALL TAXES"; OCR returned
-   `MIRP RS. 20/- (NCL. OF 42L TAYES)` and the phrase check failed. The reviewer's note
-   said this was "tunable in the lexicon, no code change". **Overruled on inspection.** No
-   phrase list fixes it: a literal for that garble overfits the pack to one packet, and a
-   short fragment like `ncl` matches almost anything. The check now carries
-   `requires_anchored_field: true` — it may only *fail* when the price was located by an
-   anchor (stage A or B). Recovered by shape alone the check is skipped, not failed. Saying
-   "the prescribed wording is absent" is a claim about what is printed, and a scan that
-   could not read the letters M-R-P has no warrant to make it (P3, P9). Where the anchor
-   was read, the finding still fires — pinned by a control test. **No fuzzy or
-   edit-distance matching exists anywhere in the demo**; character-confusion repair is
-   `T-2.1`, measured against the gold set.
+**Two of the four fixes only ever silence a finding**, so each carries a control test
+asserting it still fires where the evidence warrants it. Seven regression tests in all, in
+`extract.test.ts` and `evaluate.test.ts`, each naming the packet observation behind it —
+they state the rules independently of the corpus, which `D-5` may prune.
 
-**A synthetic fixture had been passing on the strength of defect 1 since `D-0`.**
-`COMPLETE_LABEL` is documented as "a label carrying all six declarations" and the suite
-reported six found — but the sixth came from the anchor `product` matching inside
-`Parle Products Pvt. Ltd.` on the manufacturer line, yielding `s pvt. ltd.` as the
-commodity name. No test asserted the *value*, so a fixture that did not carry the
-declaration passed a test named for carrying it. The fixture now says `Common Name:
-Glucose Biscuits`. Worth remembering when reading any other green synthetic assertion.
+Three things to carry forward:
 
-**Seven regression tests added** (`extract.test.ts`, `evaluate.test.ts`), each naming the
-packet observation behind it, plus a control for the two fixes that make a check *harder*
-to fire. The corpus catches these too, but it is two records of one packet; the unit tests
-state the rule in terms that survive the corpus being pruned in `D-5`.
-
-**The same packet gives a different verdict every pass** (record 001 found 2 fields, record
-002 found 3, sharing none). P1 holds — the decision layer is pure — but its input is
-stochastic. Worth stating plainly in the pitch rather than letting it be discovered.
-
-**Evidence highlight: PROVEN.** D-2's open item is closed. `LMPC-6-1-MRP-INCLUSIVE` in
-record 002 carries `evidenceBox=True`; tapping the finding draws the amber box over the MRP
-line on the frozen frame. Beat 5 has a visual. **Note that fix 4 above removes this exact
-flag** — it was a false one. A real present-but-defective declaration is now *wanted*, not
-merely preferred, or beat 5 has nothing to point at again.
+- **The same packet gives a different verdict every pass** (record 001 found 2 fields, 002
+  found 3, sharing none). P1 holds — the decision layer is pure — but its input is
+  stochastic. State this in the pitch rather than letting it be discovered.
+- **The evidence highlight is proven but its only demo instance is gone.** Tapping a
+  finding draws the amber box over its source line on the frozen frame (D-2's open item,
+  closed). The finding that proved it was `LMPC-6-1-MRP-INCLUSIVE` on record 002 — a
+  *false* flag, which fix 4 removes. **Beat 5 now needs a real present-but-defective
+  declaration**, or it has nothing to point at.
+- **A synthetic fixture passed for two phases on the strength of the bug it should have
+  caught.** `COMPLETE_LABEL` claimed six declarations and the suite agreed; the sixth came
+  from `product` matching inside `Parle Products Pvt. Ltd.`, and no test asserted the
+  value. Assert values, not just presence.
 
 ### Judgement calls in the `expect` blocks — overrule freely
 
@@ -125,7 +87,7 @@ The records' `extracted` and `verdict` blocks are **deliberately not updated** t
 fixed code. They are a log of what the device did at record time — a measurement. The
 `expect` block is the normative half, and it is the only half the suite reads.
 
-### Device notes learned this session
+### Device notes
 
 - `adb devices` showing `unauthorized` is a *different* failure from the device being absent;
   the first needs the on-phone prompt accepted, the second a cable. `pull-field-trial.sh`
