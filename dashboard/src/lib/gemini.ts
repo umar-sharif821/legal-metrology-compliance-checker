@@ -69,9 +69,31 @@ const UNSUITABLE = /embedding|aqa|imagen|veo|tts|audio|learnlm|gemma|thinking|-p
 /** At most this many models are probed before giving up. */
 const MAX_PROBES = 4;
 
-/** Abort any single request that takes longer than this. */
-const REQUEST_TIMEOUT_MS = 30_000;
+/**
+ * Abort any single request that takes longer than this.
+ *
+ * Generous on purpose. A slower answer is worth far more than a failed one here, and the
+ * newest model is the busiest — waiting for a less fashionable one to finish beats
+ * reporting a failure the operator can do nothing about.
+ */
+const REQUEST_TIMEOUT_MS = 60_000;
 const PROBE_TIMEOUT_MS = 8_000;
+
+/** A model that is merely busy is worth waiting for, briefly, before moving on. */
+const OVERLOAD_RETRY_MS = 1_500;
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * True when the failure is Google being busy rather than anything about the request.
+ *
+ * 503 UNAVAILABLE means "this model is experiencing high demand" and is temporary. The
+ * newest model attracts the most load, so the answer is to wait a moment and then try a
+ * less fashionable one, not to give up.
+ */
+function isOverloaded(status: number, detail: string): boolean {
+  return status === 503 || /UNAVAILABLE|high demand|overloaded/i.test(detail);
+}
 
 async function withTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
   const ctrl = new AbortController();
@@ -158,7 +180,11 @@ async function resolveModel(key: string): Promise<string> {
       if (probe.status === 429) {
         throw new Error('Google rate-limited the request. Wait a moment and try again.');
       }
-      if (!isModelUnavailable(probe.status, lastDetail)) {
+      // Retired, or simply busy. Either way this model is not the one for this scan.
+      if (
+        !isModelUnavailable(probe.status, lastDetail) &&
+        !isOverloaded(probe.status, lastDetail)
+      ) {
         throw new Error(`Google returned HTTP ${probe.status}. ${lastDetail.slice(0, 200)}`);
       }
     } catch (e) {
@@ -276,42 +302,82 @@ export async function recogniseGemini(
     const withoutThinkingConfig = JSON.stringify({ contents: [{ parts }], generationConfig });
 
     // The model is settled with a few words before the picture is sent, so the image
-    // travels exactly once no matter how many candidates had to be ruled out.
-    const model = await resolveModel(trimmed);
+    // travels exactly once against a model that is known to answer. The rest of the list
+    // is kept, because a working model can still be too busy to serve a request.
+    const primary = await resolveModel(trimmed);
+    const fallbacks = (await candidateModels(trimmed)).filter((m) => m !== primary);
+    const order = [primary, ...fallbacks];
 
-    const url = `${API_ROOT}/models/${model}:generateContent?key=${encodeURIComponent(trimmed)}`;
-    const send = (body: string) =>
+    const send = (model: string, body: string) =>
       withTimeout(
-        url,
+        `${API_ROOT}/models/${model}:generateContent?key=${encodeURIComponent(trimmed)}`,
         { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
         REQUEST_TIMEOUT_MS,
-      ).catch(() => {
-        throw new Error(
-          `${model} did not answer within ${REQUEST_TIMEOUT_MS / 1000} seconds. Check the connection, or switch to the on-device engine.`,
-        );
-      });
+      );
+
+    /**
+     * One model, with a single retry if it is merely busy.
+     *
+     * Returns null to mean "this model is not going to serve us, try another"; anything
+     * genuinely wrong with the request throws instead, because trying a different model
+     * would only bury it.
+     */
+    const attempt = async (model: string): Promise<Response | null> => {
+      for (let tries = 0; tries < 2; tries += 1) {
+        let res: Response;
+        try {
+          res = await send(model, withThinkingOff);
+        } catch {
+          return null; // timed out or aborted — move on
+        }
+
+        if (!res.ok && res.status === 400) {
+          const detail = await res.text().catch(() => '');
+          // Older models reject `thinkingConfig`. Send it again without.
+          if (/thinking/i.test(detail)) {
+            try {
+              res = await send(model, withoutThinkingConfig);
+            } catch {
+              return null;
+            }
+          } else {
+            throw new Error(`Google returned HTTP 400. ${detail.slice(0, 200)}`);
+          }
+        }
+
+        if (res.ok) return res;
+
+        const detail = await res.text().catch(() => '');
+        if (isOverloaded(res.status, detail)) {
+          if (tries === 0) {
+            await sleep(OVERLOAD_RETRY_MS);
+            continue; // same model, once more
+          }
+          return null; // still busy — let the caller try a different model
+        }
+        if (res.status === 429) {
+          throw new Error('Google rate-limited the request. Wait a moment and try again.');
+        }
+        throw new Error(`Google returned HTTP ${res.status}. ${detail.slice(0, 200)}`);
+      }
+      return null;
+    };
 
     const startedAt = performance.now();
-    let res = await send(withThinkingOff);
+    let res: Response | null = null;
 
-    if (!res.ok && res.status === 400) {
-      const detail = await res.text().catch(() => '');
-      if (/thinking/i.test(detail)) {
-        // This model predates the field. Send it again without.
-        res = await send(withoutThinkingConfig);
-      } else {
-        throw new Error(`Google returned HTTP 400. ${detail.slice(0, 200)}`);
+    for (const model of order) {
+      res = await attempt(model);
+      if (res) {
+        // Remember whichever model actually served us, so the next scan starts there.
+        resolvedModel = model;
+        break;
       }
     }
 
-    if (!res.ok) {
-      const detail = await res.text().catch(() => '');
-      // The probe already proved this model answers, so a failure here is about the
-      // request, not the model. Report it rather than silently trying another.
+    if (!res) {
       throw new Error(
-        res.status === 429
-          ? 'Google rate-limited the request. Wait a moment and try again.'
-          : `Google returned HTTP ${res.status}. ${detail.slice(0, 200)}`,
+        `Every available model was busy or unreachable (tried ${order.join(', ')}). Google's capacity fluctuates — try again in a moment, or switch to the on-device engine, which needs no network.`,
       );
     }
 
