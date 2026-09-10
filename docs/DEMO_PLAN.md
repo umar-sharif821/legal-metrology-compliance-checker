@@ -245,7 +245,7 @@ Mirrored in `docs/PROGRESS.md` under **Now**, which is the source of truth. Upda
 | **C-0** | **Capture quality** — full-quality still, image upload, preview demoted to viewfinder | **yes** | `[ ]` **not blocked — start here** |
 | **A-0** | OCR provider interface + per-provider corpus, so accuracy is a number | no | `[ ]` not blocked |
 | **A-4** | Spatial anchor-value association (`T-2.3` pulled forward) | no | `[ ]` not blocked |
-| **D-4** | Honest degradation — insufficient evidence, coach hints, aeroplane mode | **yes** | `[ ]` |
+| **D-4** | Honest degradation **+ frame admission** — refuse bad frames before OCR runs | **yes** | `[ ]` |
 | **D-5** | Polish and rehearsal — icon, APK, demo script, two run-throughs | **yes** | `[ ]` |
 | ~~A-1 / A-2 / A-3~~ | ~~Server OCR~~ — **DROPPED**, see §2.1. Cloud-hosted OCR stays a later escalation if `A-0` ever shows ML Kit is not enough | — | `[~]` |
 
@@ -407,17 +407,50 @@ the list. Plan §7.2.
 **Done when:** record 002 yields `84.9 g`, record 001 still yields nothing for that field,
 and no earlier packet regresses.
 
-### D-4 — Honest degradation *(device)*
+### D-4 — Honest degradation and frame admission *(device)*
 
 The beat that answers "is it ever wrong?", and the phase that keeps the demo truthful.
+**Expanded 2026-09-10** to pull the frame-admission half of `T-2.7` forward (plan §6.2,
+§11.3), because refusing a bad frame prevents a wrong verdict at the source rather than
+catching it afterwards. This is layer 1 of four; the other three already work.
+
+**Frame admission — new, and the reason for the expansion:**
+
+- Score each frame before OCR runs: **blur**, **glare**, **text coverage**. A frame that
+  fails is not read at all — no OCR, no extraction, no verdict, no chance to be wrong.
+- Scoring thresholds are **pack data, not code** (**P6**), and live beside the existing
+  `evidence_thresholds`. They are method parameters, not statutory values.
+- **Freeze on the best of the last few frames, not the last one.** The loop already
+  captures 2–4 per second and currently keeps whichever arrived last. Once a frame can be
+  scored, keeping the best costs nothing and is the cheapest accuracy in the phase.
+- The score is *shown*, not hidden — an officer should see why a frame was rejected.
+
+**The rest of the phase, unchanged:**
 
 - `INSUFFICIENT_EVIDENCE` path visible and distinct from `NO_ISSUES_FOUND`.
 - Advisory banner naming the pack, its version and its unreviewed status.
-- Coach hints — move closer, hold steadier, find the declaration panel.
-- Verified in aeroplane mode, from a cold app start. (**Restored** — the app is fully
-  offline again after the 2026-09-10 reversal in §2.1.)
+- Coach hints — move closer, hold steadier, tilt to kill the glare, find the panel.
+  These now have a real signal behind them rather than being guesses.
+- Verified in aeroplane mode, from a cold app start.
 
-**Done when:** a deliberately bad capture refuses to give a verdict, and says why.
+**The four layers this completes.** Together these are the honest answer to "how do you
+avoid a wrong verdict?", and three of them already work:
+
+| Layer | Mechanism | State |
+|---|---|---|
+| 1 — do not read a bad picture | frame admission, coach hints | **this phase** |
+| 2 — do not guess when unsure | word-boundary anchors, Stage B geometry, no unanchored quantity, `requires_anchored_field` | done `D-3` |
+| 3 — do not judge on thin evidence | `min_ocr_lines`, `min_fields_found` → `INSUFFICIENT_EVIDENCE` | done `D-2` |
+| 4 — never accuse, always show | advisory-only cap, evidence box on every finding | done `D-2` |
+
+**What this still cannot do**, and the demo must say so plainly: if OCR reads `84.9g` as
+`8.9g`, nothing downstream can know — the value is plausible and well-formed. Layer 4 is
+the real defence, and it is a human one. The app never makes the final call; it points an
+officer at a region and they decide (**P7**). A tool that claimed certainty here would be
+dangerous.
+
+**Done when:** a deliberately bad capture is refused *before* OCR runs and says which
+check it failed, and a good capture of the same packet passes.
 
 ### D-5 — Polish and rehearsal *(device)*
 
@@ -438,7 +471,7 @@ Decided now, so they are not decided at midnight.
 |---|---|
 | In **D-2** | Live loop → tap-to-capture (Route C). Costs one visual beat, saves the phase. |
 | In **D-2** | Evidence crops → a highlight box on the frozen frame. Still satisfies P7. |
-| In **D-4** | Coach hints. Keep `INSUFFICIENT_EVIDENCE` — that one is a beat. |
+| In **D-4** | Glare scoring and best-of-N frame selection. Keep blur scoring, the coach hints and `INSUFFICIENT_EVIDENCE` — those are the beat. |
 | In **D-5** | Icon and contrast work. A plain app that works beats a pretty one that stalls. |
 | In **C-0** | Image upload, **not** the `skipProcessing` fix. The upload costs a Gradle rebuild; dropping the flag is free and is most of the benefit. |
 | Whole phase | **D-5 before D-4, and D-4 before D-3.** Never drop D-3 to reach D-5 — an unpolished demo that reads real labels beats a polished one that does not. |
