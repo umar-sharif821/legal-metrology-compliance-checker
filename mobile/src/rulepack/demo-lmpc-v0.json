@@ -31,6 +31,13 @@
       "min_ocr_lines": 6,
       "min_fields_found": 2,
       "note": "Method parameters, not statutory values. Below either threshold the app reports INSUFFICIENT_EVIDENCE instead of a verdict, rather than letting a bad capture read as a clean label (P3, P9). They live here so field tuning is a data change."
+    },
+    "frame_admission": {
+      "note": "Frame admission (D-4). Method parameters, not statutory values — nothing here is law. A frame that fails these is refused and no verdict is offered for it, which prevents a wrong verdict rather than catching one afterwards (P3). HONESTY LIMIT, and it is a real one: BLUR AND GLARE ARE NOT SCORED. Both need raw pixels, and this app has no frame-processor or image-pixel access until T-1.12; decoding a full-resolution JPEG in JS per frame is not viable. Deriving a number from OCR output and calling it a blur score would be a number the method cannot support (P4), so it is not done. The checks below measure TEXT GEOMETRY only — is the print big enough to resolve, is a panel actually in frame, is it cut off at the edge. The app must say on screen that sharpness is unchecked (P9). These thresholds are sized from typography and framing arithmetic, NOT tuned against a corpus, and must not be quoted as tuned (P8).",
+      "min_text_height_fraction": 0.012,
+      "min_text_coverage": 0.02,
+      "max_edge_touch_fraction": 0.34,
+      "unscored": ["blur", "glare"]
     }
   },
 

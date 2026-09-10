@@ -35,6 +35,7 @@ import Overlay, { type OverlayBox } from '../camera/Overlay';
 import type { Size } from '../camera/projection';
 import type { JudgedCapture } from '../camera/capture';
 import FieldTrialBar from '../scan/FieldTrialBar';
+import type { AdmissionResult } from '../scan/admit';
 import type { ExtractionResult } from '../scan/types';
 import { NAV_BAR_INSET } from '../ui/layout';
 import type { FieldReport, Finding, Verdict, VerdictStatus } from './types';
@@ -193,6 +194,55 @@ function FindingCard({
   );
 }
 
+/**
+ * What was measured about the *picture*, and what was not (`D-4`).
+ *
+ * Shown on every verdict, not only on a refusal. On a refused frame it is the working
+ * behind the refusal; on an admitted one it is the record that these checks ran and that
+ * two others did not. Hiding the second half would let an unchecked quality read as a
+ * passed one, which is exactly what **P9** forbids.
+ */
+function FrameQuality({ admission }: { admission: AdmissionResult }) {
+  return (
+    <View style={styles.frameQuality}>
+      <Text style={styles.sectionHead}>Frame quality</Text>
+      {admission.unmeasurable ? (
+        <Text style={styles.frameUnmeasurable}>
+          The engine reported no text positions, so this frame&apos;s quality could not be
+          measured. That is a limit of the reading, not a judgement about the picture.
+        </Text>
+      ) : (
+        admission.checks.map((c) => (
+          <View key={c.id} style={styles.frameRow}>
+            <Text style={c.passed ? styles.framePass : styles.frameFail}>
+              {c.passed ? '✓' : '✗'} {c.label}
+            </Text>
+            <Text style={styles.frameNum}>
+              {c.measured === null ? 'not measured' : formatPct(c.measured)}
+              {' · '}
+              {c.bound === 'min' ? 'min ' : 'max '}
+              {formatPct(c.threshold)}
+            </Text>
+          </View>
+        ))
+      )}
+      {admission.unscored.length > 0 && (
+        <Text style={styles.frameUnscored}>
+          Not measured: {admission.unscored.join(', ')}. This build has no access to the
+          image&apos;s pixels, so sharpness and glare are not checked at all — a frame can
+          pass every check above and still be too blurry to trust. Judge the photograph
+          yourself.
+        </Text>
+      )}
+    </View>
+  );
+}
+
+/** Fractions are shown as percentages because nobody reads 0.0167 off a phone. */
+function formatPct(v: number): string {
+  return `${(v * 100).toFixed(1)}%`;
+}
+
 export default function VerdictScreen({ verdict, capture, extraction, onResume }: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frameSize, setFrameSize] = useState<Size>({ width: 0, height: 0 });
@@ -248,6 +298,8 @@ export default function VerdictScreen({ verdict, capture, extraction, onResume }
         {verdict.insufficientReason !== null && (
           <Text style={styles.insufficient}>{verdict.insufficientReason}</Text>
         )}
+
+        <FrameQuality admission={verdict.admission} />
 
         <Text style={styles.sectionHead}>
           Declarations · {verdict.counts.fieldsFound} of {verdict.counts.fieldsExpected} located
@@ -324,6 +376,14 @@ const styles = StyleSheet.create({
   provenanceNote: { color: '#64748B', fontSize: 10, lineHeight: 15, marginTop: 4 },
 
   insufficient: { color: '#FBBF24', fontSize: 14, lineHeight: 20, marginBottom: 14 },
+
+  frameQuality: { marginBottom: 14 },
+  frameRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4 },
+  framePass: { color: '#4ADE80', fontSize: 13 },
+  frameFail: { color: '#FBBF24', fontSize: 13, fontWeight: '700' },
+  frameNum: { color: '#64748B', fontSize: 12, fontVariant: ['tabular-nums'] },
+  frameUnmeasurable: { color: '#94A3B8', fontSize: 13, lineHeight: 19, marginTop: 4 },
+  frameUnscored: { color: '#94A3B8', fontSize: 12, lineHeight: 18, marginTop: 8 },
 
   sectionHead: {
     color: '#94A3B8',

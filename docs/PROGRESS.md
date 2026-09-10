@@ -3,7 +3,7 @@
 > Single source of truth for project state. Updated by `/handoff`, read by `/pickup`.
 > Keep it terse. This file is read in full every session — every line costs tokens.
 
-**Last updated:** 2026-09-10 · **Sessions completed:** 11 · **Current sprint:** 1 (paused for the demo detour)
+**Last updated:** 2026-09-10 · **Sessions completed:** 12 · **Current sprint:** 1 (paused for the demo detour)
 
 ---
 
@@ -33,8 +33,60 @@
 > All three are cheaper than swapping engines would have been, and `A-4` fixes the largest
 > defect the field trial found, which was never an OCR failure.
 
-**Current demo phase:** `A-0` — make accuracy measurable. **DONE.**
-**Status:** all nine gates green (**131** TS tests, up from 104; 34 pytest). Nothing red.
+**Current demo phase:** `D-4` — honest degradation and frame admission. **PARTIAL.**
+**Status:** host gates green — typecheck, lint, **144** TS tests (up from 130 as counted by
+`vitest`; the "131" in the previous handoff was one too many), 34 pytest. Nothing red.
+**Every part of `D-4` is written; none of it has been seen on the phone.** The phone was
+unplugged for most of the session and is the user's daily driver.
+
+**What remains is exactly one thing: run `D-4` on the Nord 4.** Its "Done when"
+(`DEMO_PLAN` §4) is a device criterion — a deliberately bad capture refused with the failed
+check named, a good capture of the same packet passing — plus the aeroplane-mode cold start.
+Metro must be running (`npx expo start --dev-client` in `mobile/`, plus
+`adb reverse tcp:8081 tcp:8081`); the app is a dev client and shows a white screen with no
+bundler, which cost most of an hour this session.
+
+**`D-3` was dropped at 2/4 by the user this session.** Not paused — dropped. Read the
+Decisions line and the two Open questions it leaves permanently unanswered before you
+consider quoting any accuracy number.
+
+**What `D-4` built.** Frame admission is a pure scorer over the OCR frame's *text
+geometry*, `mobile/src/scan/admit.ts`, with all three thresholds in the pack
+(`demo-lmpc-v0.json` → `metadata.frame_admission`) and no default anywhere in code — a
+test moves a threshold in the data and asserts the same frame changes answer (P6). It runs
+inside `evaluate()` and **speaks before the line-count floor**: when a frame is refused the
+reason names the framing (the cause) rather than the line count (the symptom), because only
+the cause tells an officer what to do differently. `Verdict.admission` carries the working
+to the screen, and `VerdictScreen`'s new `FrameQuality` block shows each check's measured
+value against its threshold on **every** verdict, not only on a refusal.
+
+**The deviation that matters, and it is not small: `D-4` does NOT score blur or glare, and
+admission runs AFTER OCR, not before it.** Both blur and glare need raw pixels. This app has
+none — `expo-camera` returns a file, there is no frame processor until `T-1.12`, and decoding
+a full-resolution JPEG in JS per frame is not viable. The tempting substitute — some function
+of line count or text density called a "blur score" — would be a number the method cannot
+support (P4), so it is not produced. Consequence: the plan's "no OCR, no chance to be wrong"
+is only half achieved. The **correctness** half holds (no verdict is offered on a refused
+frame); the **CPU saving** does not. The pack note, the module docstring and the on-screen
+text all say sharpness is unchecked, in as many words, because a frame can pass every check
+`D-4` runs and still be too blurry to trust (P9). **Do not let anyone describe `D-4` as
+"blur detection".**
+
+**Best-of-N and coach hints are done too.** The loop kept whichever frame arrived last,
+which on a hand-held phone is as likely to be the one that moved; it now ranks the last
+`FRAME_WINDOW` (3) passes by admission and publishes the best. The ordering is
+**lexicographic and weightless** — more checks passed, then more of the frame is text —
+because a weighted composite would need two or three constants nothing in the method
+justifies (P4). An ordering needs no units; a score would have to mean something. Coach
+hints (`hintsFor`) are the failed checks in the order an operator would fix them, and a test
+asserts **no hint ever mentions blur, focus, steadiness or glare**, since none of those is
+measured.
+
+**Three checks, all measurable from box geometry:** median line height as a fraction of image
+height (is the print resolvable), summed box area over frame area (is a panel actually in
+frame, or is this one word on a shelf), and the share of boxes flush against the frame border
+(is the panel cut off). "Could not measure" is a third outcome distinct from pass and fail —
+a frame whose engine reported no boxes is reported as unmeasurable, not as bad (P9).
 
 **The plan's "Done when" has passed.** `DEMO_PLAN` §4 A-0 required *"the existing two
 packets produce a per-provider table, ML Kit's column is populated from the records already
@@ -311,11 +363,11 @@ Demo phases, in priority order. After each one there is still a demo you could g
 - [x] `D-0` Foundations — scaffold, Gradle build green, rule pack, evaluator, unit tests · *no device*
 - [x] `D-1` Shell on the phone — one still capture reaches ML Kit and prints text
 - [x] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
-- [>] `D-3` Field trial — **2/4 recorded; re-scoped from ten to four (user, 2026-09-10 — only two products available)**. Two captures left, both on packets in hand ← **resume here**
+- [~] `D-3` Field trial — **DROPPED at 2/4 (user, 2026-09-10). Do not re-open without saying so.** Cost is recorded in Decisions and Open questions; the plan's own cut table said never to cut this one
 - [x] `C-0` Capture quality — full-quality still, image upload, preview → viewfinder · **fully verified on device**
 - [x] `A-4` Spatial anchor-value association (`T-2.3` pulled forward) · *no device* — acceptance test passed; thresholds not yet corpus-tuned
 - [x] `A-0` Make accuracy measurable — `OCRProvider`, per-provider corpus · *no device* — table prints; **cannot yet separate capture from engine (needs a second-source record, see Parked)**
-- [ ] `D-4` Honest degradation **+ frame admission** — refuse a bad frame before OCR runs (`T-2.7` half pulled forward)
+- [>] `D-4` Honest degradation **+ frame admission** — **code complete and green on host; NOT verified on device.** Only the device check remains ← **resume here**
 - [~] `A-1`/`A-2`/`A-3` Server OCR — **dropped**, see `DEMO_PLAN` §2.1
 - [ ] `D-5` Polish and rehearsal — icon, standalone APK, `docs/DEMO_SCRIPT.md`, two run-throughs
 
@@ -348,8 +400,12 @@ Setup on a fresh clone: `npm install` and `python -m pip install -r requirements
   `T-1.11`, but it is off the critical path.
 - **Keep the Nord 4 connected.** `D-3`…`D-5` all need it. Device name `CPH2661`,
   serial `bac3856a`, camera permission already granted to `com.sih26034.lmscan`.
-- **Two captures close `D-3`, and that is all that is being asked for.** Both are packets
-  already in hand; nothing needs buying. Keep the Nord 4 connected for them.
+- ~~Two captures close `D-3`~~ — **`D-3` was dropped by the user 2026-09-10. Stop asking.**
+- **`D-4` needs the phone and has never been on it.** Nothing in this phase has been seen
+  running. The cable came loose repeatedly last session and the phone is the user's daily
+  driver — check call state and foreground app before driving it, and stop if it is in use.
+- **Ask before re-photographing anything.** The user has twice said to move faster rather
+  than collect more captures.
   1. **Re-photograph the Lays packet** (records 001/002) with the stock camera app, ~15–20 cm
      from the declarations panel, then feed it in via *Use a photo from the gallery* and hit
      **Record**. This answers `A-0`'s capture-vs-engine question and is the single
@@ -480,12 +536,32 @@ Append-only. One line each. Never re-litigate a line that is already here.
 
 ---
 
+- `2026-09-10` **USER DECISION — `D-3` DROPPED at 2/4, not paused.** The plan's own cut table (`DEMO_PLAN` §4, "Cut lines") says *"Never drop D-3 to reach D-5"* and ranks it the last thing to cut; this overrides that. Stated cost, so it is not rediscovered: `A-0`'s central question stays unanswered and no `A-0` figure may be quoted as ML Kit's accuracy; `A-4`'s and `D-4`'s thresholds stay untuned; the stage-A false-commodity-name defect stays measured on one packet only. Do not re-open without the user saying so.
+- `2026-09-10` **`D-4` scores text geometry, not pixels — blur and glare are NOT measured, and admission runs after OCR.** No pixel access exists in this app (no frame processor until `T-1.12`; a per-frame JPEG decode in JS is not viable), and a "blur score" derived from OCR output would be a number the method cannot support (P4). The correctness half of the plan's intent holds — a refused frame yields no verdict — the CPU saving does not. The pack note, the module docstring and the screen all say sharpness is unchecked (P9). **Never describe `D-4` as blur detection.**
+- `2026-09-10` **Frame admission speaks before the line-count floor.** When a frame is refused the reason names the framing, not the line count: the count is the symptom, the framing is the cause, and only the cause tells an officer what to do differently. `min_ocr_lines` still fires on a well-framed frame carrying too little text, and a test pins that so `D-4` cannot quietly retire `D-2`'s threshold.
+- `2026-09-10` **"Could not measure" is a third admission outcome, distinct from pass and fail.** A frame whose engine returned no boxes is reported unmeasurable, not bad — the difference between "this picture is poor" and "I could not tell" (P9).
+
 ## Open questions
 
 - [ ] **LMPC sub-clause letters unverified.** v1: MRP 6(1)(f), date 6(1)(g). Common reading: MRP 6(1)(e), date 6(1)(d). Everything legal stays `PENDING_LEGAL_REVIEW` until confirmed. *(plan §2.2, §4.2)*
 - [ ] Rule 7 height table values are a plausible reconstruction, not verified against the Second Schedule. *(plan §4.3)*
 - [ ] Small-quantity exemption thresholds (10 g / 10 ml and carve-outs) unverified. *(plan §4.1)*
 - [ ] Best-before attribution — likely FSSAI Labelling & Display Regs 2020, not LMPC. *(plan §2.2)*
+- [ ] **Was the field trial's damage the capture or the engine? — now permanently unanswered.**
+  `A-0` was built to answer it and cannot: both records are `viewfinder`, and the one thing
+  that would settle it (the Lays packet re-photographed with the stock camera, recorded as
+  `upload`) was `D-3` work, which is dropped. **Until some record exists from a second capture
+  kind, no `A-0` number may be quoted as ML Kit's accuracy** — the reference row cannot fall
+  below 100% while the suite is green, and it measures one capture kind, not the engine.
+- [ ] **`A-4`'s thresholds stay untuned, and so do `D-4`'s.** Both were sized from typography
+  and merely *checked* against two captures of one packet. With `D-3` dropped the corpus never
+  gains variety, so neither set may be described as corpus-tuned (P8).
+- [ ] **Stage A is producing confident false commodity names.** Two captures of the Navratna
+  Mix packet this session returned `"is made in a faciliiy that"` and `"of india"` as
+  `commodity_name`, both `A_anchored_inline` at **high** confidence — scraped out of the
+  allergen sentence and out of `PRODUCT OF INDIA`. `A-4` fixed stage-B *pairing*; this is
+  stage A matching an anchor mid-sentence and taking the rest of the line. It is a P3 failure
+  (a false value is worse than no value) and it is the most concrete defect currently known.
 - [x] ~~Does the SIH26034 problem statement call for offline operation?~~ User checked
   2026-09-10: it does not appear to. Moot in any case — the app is fully offline again.
 
@@ -495,6 +571,22 @@ Append-only. One line each. Never re-litigate a line that is already here.
 
 Noticed but deliberately out of scope for now. Do not action without asking.
 
+- **The loop now holds up to `FRAME_WINDOW` (3) full-resolution JPEGs instead of one**, and
+  the window is not emptied when the loop unmounts. Bounded and small, and the previous code
+  leaked its one retained frame the same way — but it is three times as much and it was a
+  deliberate trade, not an oversight. `mobile/src/camera/useScanLoop.ts`.
+- **`FieldTrialBar` still prints "N of 10"** after a record. `D-3` was re-scoped to four in
+  `cfdda07` and dropped entirely this session; the string was never updated. One line in
+  `mobile/src/scan/FieldTrialBar.tsx`.
+- **Record `003-bhujilalji-navratna-mix-150g` on the phone is contaminated — do not pull it
+  into the repo.** The packet was photographed in front of the laptop showing the Claude
+  session, and ML Kit read the screen: the record's `lines` contain `"What I'm dolng:"`,
+  `"Where I left off:"`, `"Both present"` and more. The packet's own text read fine, and the
+  two located values came from the packet, not the screen — but the evidence image a reviewer
+  would open has a chat transcript in it (P7). It is on the device only. Delete it or re-shoot
+  the packet against a plain surface; the user was asked and moved on instead. The name is
+  also misspelled (`Bhujilalji`; the brand is `Bhujialalji`) — `adb shell input text` dropped
+  a letter.
 - **The field-trial JPEGs are gitignored, and that forecloses future scoring.** A candidate
   OCR engine can only be replayed on a machine that still holds the images. Do not clear the
   phone's `field-trial` directory or the local `mobile/field-trial/*.jpg` without deciding

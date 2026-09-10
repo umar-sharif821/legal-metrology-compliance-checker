@@ -139,6 +139,30 @@ export interface SpatialAssociation {
   readonly minMargin: number;
 }
 
+/**
+ * Frame admission's thresholds (`D-4`).
+ *
+ * **What these do and do not measure.** Every value here is read off the OCR frame's
+ * *text geometry* — how tall the print is, how much of the frame it covers, how much of
+ * it runs off the edge. None of them measures sharpness or glare, because this app has
+ * no access to pixels: there is no frame processor until `T-1.12`, and decoding a
+ * full-resolution JPEG in JS on every frame is not viable. A blur number derived from OCR
+ * output would be a number the method cannot support (**P4**), so none is produced and
+ * the screen says sharpness went unchecked (**P9**).
+ *
+ * Sized from typography and framing arithmetic, not tuned against a corpus (**P8**).
+ */
+export interface FrameAdmission {
+  /** Least median line height, as a fraction of image height, for print to be resolvable. */
+  readonly minTextHeightFraction: number;
+  /** Least share of the frame's area covered by text before it counts as a panel. */
+  readonly minTextCoverage: number;
+  /** Most of the text boxes that may touch the frame edge before the panel is cut off. */
+  readonly maxEdgeTouchFraction: number;
+  /** Named here so the UI can state what was NOT checked rather than implying it was. */
+  readonly unscored: readonly string[];
+}
+
 export interface PackMetadata {
   readonly packId: string;
   readonly packVersion: string;
@@ -152,6 +176,7 @@ export interface PackMetadata {
   readonly minOcrLines: number;
   readonly minFieldsFound: number;
   readonly association: SpatialAssociation;
+  readonly frameAdmission: FrameAdmission;
 }
 
 export interface CompiledPack {
@@ -249,6 +274,34 @@ function compileAssociation(o: Record<string, unknown>): SpatialAssociation {
   };
 }
 
+/**
+ * Read frame admission's thresholds out of the pack.
+ *
+ * Required, bounds-checked, and with no default in this file — the same rule the rest of
+ * the loader follows, and the reason none of these numbers can drift into code (**P6**).
+ * The bounds are the ones that make each parameter meaningful rather than merely badly
+ * tuned: a fraction outside 0–1 is not a fraction.
+ */
+function compileFrameAdmission(o: Record<string, unknown>): FrameAdmission {
+  const where = 'metadata.frame_admission';
+  const at = (key: string): number => {
+    const v = num(o[key], `${where}.${key}`);
+    if (v < 0 || v > 1) {
+      throw new PackError(`${where}.${key}`, `expected a fraction in [0, 1], got ${v}`);
+    }
+    return v;
+  };
+  const unscored = arr(o.unscored, `${where}.unscored`).map((v, i) =>
+    str(v, `${where}.unscored[${i}]`),
+  );
+  return {
+    minTextHeightFraction: at('min_text_height_fraction'),
+    minTextCoverage: at('min_text_coverage'),
+    maxEdgeTouchFraction: at('max_edge_touch_fraction'),
+    unscored,
+  };
+}
+
 function parsePresentation(v: unknown, where: string): ValuePresentation {
   const p = str(v, where);
   if (p !== 'captured' && p !== 'whole_line') {
@@ -334,6 +387,7 @@ function compile(raw: unknown): CompiledPack {
   const prov = obj(meta.provenance, 'metadata.provenance');
   const thresholds = obj(meta.evidence_thresholds, 'metadata.evidence_thresholds');
   const assoc = obj(meta.spatial_association, 'metadata.spatial_association');
+  const admission = obj(meta.frame_admission, 'metadata.frame_admission');
 
   const status = str(prov.status, 'metadata.provenance.status');
   if (!PROVENANCE_STATUSES.includes(status)) {
@@ -357,6 +411,7 @@ function compile(raw: unknown): CompiledPack {
       'metadata.evidence_thresholds.min_fields_found',
     ),
     association: compileAssociation(assoc),
+    frameAdmission: compileFrameAdmission(admission),
   };
 
   const shapes = new Map<string, CompiledShape>();

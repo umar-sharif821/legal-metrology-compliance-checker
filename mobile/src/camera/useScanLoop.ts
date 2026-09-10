@@ -26,6 +26,8 @@ import type { CameraView } from 'expo-camera';
 import { File } from 'expo-file-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
+import { DEMO_PACK } from '../rulepack/pack';
+import { admit, isBetterFrame, type AdmissionResult } from '../scan/admit';
 import type { Capture } from './capture';
 import { mlKitProvider } from './ocr';
 import { withTimeout } from './timeout';
@@ -47,6 +49,22 @@ export const LOOP_INTERVAL_MS = 250;
  * that looks merely slow. Stopping and naming the failure is P9 — degrade visibly.
  */
 export const MAX_CONSECUTIVE_ERRORS = 3;
+
+/**
+ * How many recent passes the loop chooses between when it freezes (`D-4`, best-of-N).
+ *
+ * The loop already takes 2–4 frames a second and, until now, kept whichever arrived last
+ * — which on a hand-held phone is as likely to be the one that moved as the one that did
+ * not. Ranking the last few by frame admission and keeping the best costs nothing extra:
+ * every frame is scored anyway, and the images are already on disk.
+ *
+ * Three is about a second of scanning at the loop's real rate. Larger windows hold stale
+ * frames — the operator has moved the phone since — and each one pins a full-resolution
+ * JPEG in the cache until it is displaced. Loop mechanics, like `LOOP_INTERVAL_MS` and
+ * `PASS_TIMEOUT_MS` beside it, not a rule-pack threshold: it tunes how the camera is
+ * driven, and nothing about it is a statement about labels.
+ */
+export const FRAME_WINDOW = 3;
 
 /**
  * How long one pass may take before it is abandoned.
@@ -74,6 +92,14 @@ export type LiveCapture = Capture & { readonly source: 'viewfinder' };
 
 export interface ScanLoopState {
   readonly capture: LiveCapture | null;
+  /**
+   * Frame admission for the published capture, so the viewfinder can coach (`D-4`).
+   *
+   * Null before the first pass. This is the *live* frame's score, not the judged still's
+   * — the still is admitted again on its own when it is taken, because it is a different
+   * photograph.
+   */
+  readonly admission: AdmissionResult | null;
   readonly error: string | null;
   /** Completed passes this session — the visible sign that the loop is actually running. */
   readonly passes: number;
@@ -137,6 +163,9 @@ export function useScanLoop(
   active: boolean,
 ): ScanLoopState {
   const [capture, setCapture] = useState<LiveCapture | null>(null);
+  const [admission, setAdmission] = useState<AdmissionResult | null>(null);
+  /** The best of the last `FRAME_WINDOW` passes, and the window itself. */
+  const window = useRef<{ capture: LiveCapture; admission: AdmissionResult }[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [passes, setPasses] = useState(0);
   /** Bumped by `retry`; it is in the effect's deps, so a bump tears the loop down and starts a new one. */
@@ -249,20 +278,37 @@ export function useScanLoop(
             break;
           }
 
-          discard(liveUri.current);
-          liveUri.current = picture.uri;
           seq.current += 1;
 
-          consecutiveErrors = 0;
-          setError(null);
-          setCapture({
+          const passed: LiveCapture = {
             uri: picture.uri,
             frame,
             captureMs,
             seq: seq.current,
             source: 'viewfinder',
             provider: mlKitProvider.id,
-          });
+          };
+          const scored = admit(frame, DEMO_PACK.metadata.frameAdmission);
+
+          // Best-of-N (D-4). Keep the last few passes, publish the best of them rather
+          // than the newest. `liveUri` is no longer simply "the previous frame" — a frame
+          // still inside the window may be the one on screen — so the window owns the
+          // files and drops each one only as it falls out.
+          window.current = [...window.current, { capture: passed, admission: scored }];
+          while (window.current.length > FRAME_WINDOW) {
+            const evicted = window.current.shift();
+            if (evicted && evicted.capture.uri !== liveUri.current) discard(evicted.capture.uri);
+          }
+          let best = window.current[0];
+          for (const entry of window.current) {
+            if (isBetterFrame(entry.admission, best.admission)) best = entry;
+          }
+          liveUri.current = best.capture.uri;
+
+          consecutiveErrors = 0;
+          setError(null);
+          setCapture(best.capture);
+          setAdmission(best.admission);
           setPasses((n) => n + 1);
         } catch (caught) {
           if (cancelled) break;
@@ -290,5 +336,5 @@ export function useScanLoop(
     };
   }, [active, attempt, cameraRef]);
 
-  return { capture, error, passes, retry, exclusive };
+  return { capture, admission, error, passes, retry, exclusive };
 }

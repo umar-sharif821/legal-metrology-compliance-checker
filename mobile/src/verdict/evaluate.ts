@@ -24,6 +24,8 @@
  * it by a conformance suite (`T-1.9`). Do not promote this file.
  */
 
+import { admit } from '../scan/admit';
+import type { AdmissionResult } from '../scan/admit';
 import type { CompiledCheck, CompiledDeclaration, CompiledPack } from '../rulepack/pack';
 import type { ExtractedField, ExtractionResult, OcrFrame } from '../scan/types';
 import type { FieldReport, Finding, Verdict, VerdictStatus } from './types';
@@ -133,7 +135,16 @@ function buildFieldReports(pack: CompiledPack, byField: ReadonlyMap<string, Extr
  * thresholds come from the pack — they are method parameters, and the demo tunes them
  * by editing data.
  */
-function insufficiency(pack: CompiledPack, ocrLines: number, fieldsFound: number): string | null {
+function insufficiency(
+  pack: CompiledPack,
+  ocrLines: number,
+  fieldsFound: number,
+  admission: AdmissionResult,
+): string | null {
+  // Frame admission speaks first. If the picture could not support a reading, saying so
+  // beats reporting how few lines came out of it — the line count is a symptom and the
+  // framing is the cause, and only the cause tells an officer what to do differently.
+  if (!admission.admitted) return admission.refusedReason;
   const { minOcrLines, minFieldsFound } = pack.metadata;
   if (ocrLines < minOcrLines) {
     return `Only ${ocrLines} line${ocrLines === 1 ? '' : 's'} of text were read, below the ${minOcrLines} needed to judge a label. Move closer, steady the phone, and try again.`;
@@ -170,7 +181,8 @@ export function evaluate(
 
   const ocrLines = frame.lines.length;
   const fieldsFound = extraction.fields.length;
-  const insufficientReason = insufficiency(pack, ocrLines, fieldsFound);
+  const admission = admit(frame, pack.metadata.frameAdmission);
+  const insufficientReason = insufficiency(pack, ocrLines, fieldsFound, admission);
 
   const status: VerdictStatus = insufficientReason
     ? 'INSUFFICIENT_EVIDENCE'
@@ -185,6 +197,7 @@ export function evaluate(
     findings: status === 'INSUFFICIENT_EVIDENCE' ? [] : findings,
     fields: fieldReports,
     insufficientReason,
+    admission,
     packId: pack.metadata.packId,
     packVersion: pack.metadata.packVersion,
     statuteLong: pack.metadata.statuteLong,

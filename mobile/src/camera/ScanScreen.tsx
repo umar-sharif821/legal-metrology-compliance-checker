@@ -51,6 +51,7 @@ import type { OcrFrame } from '../scan/types';
 import { NAV_BAR_INSET } from '../ui/layout';
 import VerdictScreen from '../verdict/VerdictScreen';
 import { judge, type Judgement } from './capture';
+import { hintsFor } from '../scan/admit';
 import Overlay, { type OverlayBox } from './Overlay';
 import { OCR_SCRIPT_NAME } from './ocr';
 import type { Size } from './projection';
@@ -137,6 +138,7 @@ export default function ScanScreen() {
     cameraRef,
     ready && judged === null && mountError === null && busy.kind !== 'working',
   );
+  const hints = live.admission === null ? [] : hintsFor(live.admission);
 
   /**
    * Run one judged capture, with the camera to itself and the loop held off.
@@ -369,6 +371,14 @@ export default function ScanScreen() {
                 the same as the engine failing.
               </Text>
             )}
+            {/*
+             * Coach hints (D-4). These have a measurement behind them now rather than
+             * being guesses: each one is a frame-admission check that the frame on screen
+             * is currently failing. They are shown while scanning, when the operator can
+             * still act on them, and they say nothing about sharpness — that is not
+             * measured and the verdict screen says so.
+             */}
+            {hints.length > 0 && <Text style={styles.coach}>{hints.join(' · ')}</Text>}
           </>
         )}
       </View>
@@ -443,6 +453,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(11,18,32,0.72)',
   },
   hint: { color: '#94A3B8', fontSize: 13, lineHeight: 18 },
+  coach: { color: '#FBBF24', fontSize: 14, fontWeight: '700', marginTop: 6 },
   stats: { color: '#7DD3FC', fontSize: 12, fontVariant: ['tabular-nums'] },
   viewfinder: { color: '#94A3B8', fontSize: 11, lineHeight: 16, marginTop: 6 },
   errorTitle: { color: '#FCA5A5', fontSize: 15, fontWeight: '700' },

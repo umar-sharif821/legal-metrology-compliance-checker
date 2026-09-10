@@ -1,4 +1,5 @@
 import type { Severity } from '../rulepack/pack';
+import type { AdmissionResult } from '../scan/admit';
 import type { Association, Box, Confidence, ExtractionStage } from '../scan/types';
 
 /**
@@ -70,6 +71,15 @@ export interface Verdict {
   readonly fields: readonly FieldReport[];
   /** Why the verdict is INSUFFICIENT_EVIDENCE, in words fit for the screen. */
   readonly insufficientReason: string | null;
+  /**
+   * Frame admission's working (`D-4`) — what was measured about the picture itself.
+   *
+   * Always present, whether or not it refused, so the screen can show an officer the
+   * numbers behind a refusal *and* state which qualities went unmeasured on a frame that
+   * passed. A verdict that hid this would be claiming a quality check it did not run
+   * (**P9**).
+   */
+  readonly admission: AdmissionResult;
   readonly packId: string;
   readonly packVersion: string;
   readonly statuteLong: string;

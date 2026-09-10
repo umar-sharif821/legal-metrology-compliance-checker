@@ -4,11 +4,25 @@ import rawPack from '../rulepack/demo-lmpc-v0.json';
 import { compilePack, DEMO_PACK } from '../rulepack/pack';
 import { extract } from '../scan/extract';
 import * as fx from '../scan/fixtures';
-import type { OcrFrame } from '../scan/types';
+import type { OcrFrame, OcrLine } from '../scan/types';
 import { evaluate } from './evaluate';
 
-function scan(texts: readonly string[]) {
-  const lines = fx.linesFrom(texts);
+/**
+ * Lay the same texts out as a large, well-centred panel.
+ *
+ * Used only where a test needs to hold framing constant while varying something else —
+ * `fx.linesFrom`'s small boxes fail D-4's coverage check, which is correct for most
+ * fixtures and gets in the way when the point is what happens *after* admission passes.
+ */
+function wellFramedLines(texts: readonly string[]): OcrLine[] {
+  return texts.map((text, i) => ({
+    text,
+    box: { x: 300, y: 600 + i * 100, width: 400, height: 60 },
+  }));
+}
+
+function scan(texts: readonly string[], opts: { wellFramed?: boolean } = {}) {
+  const lines = opts.wellFramed ? wellFramedLines(texts) : fx.linesFrom(texts);
   const frame: OcrFrame = {
     lines,
     imageWidth: 1080,
@@ -101,6 +115,20 @@ describe('verdict', () => {
 describe('degrading visibly', () => {
   it('refuses a verdict when barely any text was read', () => {
     const { verdict } = scan(fx.NEARLY_BLANK);
+    expect(verdict.status).toBe('INSUFFICIENT_EVIDENCE');
+    // Since D-4 the reason names the *cause* — how the picture was framed — rather than
+    // the line count, which is only its symptom. A count tells an officer that it failed;
+    // the framing tells them what to do differently.
+    expect(verdict.insufficientReason).toMatch(/frame|panel|closer/i);
+    expect(verdict.admission.admitted).toBe(false);
+  });
+
+  it('still refuses on the line-count floor when the framing itself was fine', () => {
+    // D-2's threshold has to survive D-4 sitting in front of it: a frame that passes
+    // admission and still carries too little text must be refused for that reason, or
+    // adding admission would have quietly retired min_ocr_lines.
+    const { verdict } = scan(fx.NEARLY_BLANK, { wellFramed: true });
+    expect(verdict.admission.admitted).toBe(true);
     expect(verdict.status).toBe('INSUFFICIENT_EVIDENCE');
     expect(verdict.insufficientReason).toMatch(/line/i);
   });
