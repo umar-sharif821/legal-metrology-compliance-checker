@@ -9,16 +9,30 @@
 
 ## Now
 
-> **DETOUR IN PROGRESS — demo app, phases `D-0`…`D-5`.** See `docs/DEMO_PLAN.md` §4 for
-> the phase definitions and cut lines. The task board below is unchanged; the demo does
-> not advance it. **When `D-5` ships, resume at `T-1.3`.** Demo code (`mobile/`) is
-> throwaway scaffolding and must never be promoted into `packages/rule-engine-ts` or
-> `rulepack/*.json`.
+> **DETOUR IN PROGRESS — demo app, phases `D-0`…`D-5` plus the accuracy track `A-0`…`A-4`.**
+> See `docs/DEMO_PLAN.md` §4 for phase definitions, §2.1 for the OCR provider order.
+> **When `D-5` ships, resume at `T-1.3`.** Demo code (`mobile/`) is throwaway scaffolding
+> and must never be promoted into `packages/rule-engine-ts` or `rulepack/*.json`.
+>
+> **SCOPE CHANGED 2026-09-10 by the user.** Accuracy is the product; an officer who cannot
+> trust a result inspects by hand anyway. **Cloud Vision is now the default OCR path**,
+> self-hosted PaddleOCR is the fallback, ML Kit drives the live preview only and never the
+> verdict, and with **no provider reachable the app refuses to give a verdict**. That last
+> point **supersedes P2** in `CLAUDE.md` and re-scopes `T-3.2`, `T-3.4` and `T-6.4` —
+> flagged on the board below, not silently left contradictory. The demo is no longer
+> one day and no longer runs in aeroplane mode.
 
 **Current demo phase:** `D-3` — field trial
 **Status:** in progress — tooling done, **all four measured defects fixed**, corpus green;
 **2 of 10 packets recorded**
-**Blocked on:** the user has only one packet. `D-3` cannot finish without eight or nine more.
+**Blocked on:** the user has only one packet. `D-3` cannot finish without eight more.
+
+**Next phase to actually start:** **`A-0`** — make accuracy measurable (`DEMO_PLAN` §4).
+It needs no device, no key and no network, and nothing else in the accuracy track is worth
+starting first: without it "Cloud Vision is more accurate" is a vendor claim, and **P8**
+bars quoting a figure that was not measured. `A-4` (spatial association, `T-2.3` pulled
+forward) is the other unblocked phase and fixes the largest defect the field trial found.
+`A-1` and `A-2` are both blocked on the user — a GCP key, and Docker installed.
 
 **All nine gates are green.** `npm test` was red on four `corpus.test.ts` failures from the
 first field trial; those are the four defects fixed this session. Both records
@@ -127,7 +141,12 @@ Demo phases, in priority order. After each one there is still a demo you could g
 - [x] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
 - [>] `D-3` Field trial — 2/10 packets recorded; tooling done, all four measured defects
       fixed and the corpus green; blocked on packets
-- [ ] `D-4` Honest degradation — insufficient evidence, coach hints, aeroplane mode
+- [ ] `A-0` Make accuracy measurable — `OCRProvider`, per-provider corpus · *no device, not blocked* ← **start here**
+- [ ] `A-1` Cloud Vision as default provider · *blocked on a GCP key*
+- [ ] `A-4` Spatial anchor-value association (`T-2.3` pulled forward) · *no device, not blocked*
+- [ ] `A-2` PaddleOCR fallback over the laptop hotspot · *blocked on Docker*
+- [ ] `D-4` Honest degradation — insufficient evidence, coach hints, `NO_PROVIDER_REACHABLE`
+- [ ] `A-3` Accuracy readout — engine, latency, confidence on screen
 - [ ] `D-5` Polish and rehearsal — icon, standalone APK, `docs/DEMO_SCRIPT.md`, two run-throughs
 
 One phase per session. `/handoff` at the end of each; do not start the next in the same session.
@@ -154,6 +173,16 @@ Nine gates: `npm run format:check`, `npm run lint`, `npm run typecheck`, `npm te
 Setup on a fresh clone: `npm install` and `python -m pip install -r requirements-dev.txt`.
 
 **Needed from user:**
+- **A Google Cloud project with billing enabled and a Cloud Vision API key.** `A-1` cannot
+  start without it and nobody but the user can create it. Vision bills per 1,000 images
+  with a monthly free tier — worth checking the current tier before scanning in bulk, since
+  the field trial and every replay costs requests.
+- **Docker Desktop installed.** `A-2` (PaddleOCR fallback) needs it. Still not installed
+  (`docker --version` fails). This was already noted for `T-1.11`; it is now on the demo's
+  critical path, not a later concern.
+- **Confirm the venue network story.** The demo now depends on reaching a server. If SIH
+  hall wifi is unusable, `A-2`'s hotspot path is not a fallback but the primary route, and
+  it should be rehearsed as such.
 - **Keep the Nord 4 connected.** `D-3`…`D-5` all need it. Device name `CPH2661`,
   serial `bac3856a`, camera permission already granted to `com.sih26034.lmscan`.
 - **A second packet was in front of the camera this session and was not recorded.** The
@@ -240,6 +269,12 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-10` **A `context_phrase_present` check may declare `requires_anchored_field`, which bars it from *failing* on a stage-C value.** A negative claim about printed wording needs the label to have been read well enough to support it. **This replaces the "tune the phrase list" idea, which was inspected and rejected:** a literal for one packet's garble overfits the pack to that packet, and a short fragment matches everything. **No fuzzy or edit-distance matching exists anywhere in the demo** — character-confusion repair is `T-2.1`, measured against the gold set, per `normalise.ts`'s own deferral.
 - `2026-09-10` **Two of the four D-3 fixes make a check *harder* to fire, so each has a control test** asserting it still fires where the evidence does warrant it. A fix that only ever silences is indistinguishable from deleting the rule.
 - `2026-09-10` **A synthetic fixture can pass on the strength of the bug it was meant to catch.** `COMPLETE_LABEL` claimed all six declarations and the suite agreed — the sixth came from `product` matching inside `Parle Products Pvt. Ltd.`, and no test asserted the value. Assert values, not just presence, or a fixture proves nothing.
+- `2026-09-10` **USER DECISION — accuracy over offline. Cloud Vision is the default OCR path**, self-hosted PaddleOCR the fallback, ML Kit demoted to driving the live preview and barred from producing a verdict. Reason given: a result an officer cannot trust sends them back to manual inspection, which is the problem the tool exists to remove.
+- `2026-09-10` **USER DECISION — with no provider reachable the app refuses to give a verdict** rather than falling back to on-device ML Kit. **This supersedes P2 in `CLAUDE.md`** ("the device must reach a verdict alone; network is an enhancement path, never a dependency"). Consequences accepted and recorded: the demo no longer runs in aeroplane mode, beat 1 is rewritten from the offline story to a measured accuracy comparison, and `T-3.2`, `T-3.4`, `T-6.4` are re-scoped. Do not re-litigate; do re-scope those tasks before Sprint 3.
+- `2026-09-10` **Better OCR fixes one of the four defects the field trial measured, not four.** Of the four: one was a recognition failure (`INCL. OF ALL TAXES` → `NCL. OF 42L TAYES`); three were our own logic. The largest — `net_quantity` reporting `15.1g` when the true `84.9g` **had been read correctly** — is anchor-value association, which no OCR upgrade touches. `T-2.3` is therefore pulled forward as `A-4`, and shipping a provider integration without it buys a sharper camera pointed at the wrong line.
+- `2026-09-10` **`A-0` precedes every provider integration.** An accuracy claim with no per-provider measurement over recorded packets is a vendor claim, and P8 bars quoting a figure that was not measured. The field-trial JPEGs stop being keepsakes and become the input that lets a new engine be scored against packets already collected.
+- `2026-09-10` **The Cloud Vision key lives on a server, never in the APK.** A key shipped in a React Native bundle is extractable by anyone with the file. This is the only reason the demo gains a backend; the `/ocr` endpoint is stateless, with no Postgres and no auth beyond a shared secret.
+- `2026-09-10` **The verdict screen names the engine that read the label, and its latency.** With ML Kit barred from the verdict this is currently moot, but a degraded read must never be presentable as a server-quality one if that ever changes (P9).
 - `2026-09-10` **Field-trial records' `extracted`/`verdict` blocks are never updated to match fixed code.** They are the log of what the device did at record time. Only the hand-written `expect` block is normative, and only it is read by the suite.
 
 ---
@@ -250,6 +285,14 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - [ ] Rule 7 height table values are a plausible reconstruction, not verified against the Second Schedule. *(plan §4.3)*
 - [ ] Small-quantity exemption thresholds (10 g / 10 ml and carve-outs) unverified. *(plan §4.1)*
 - [ ] Best-before attribution — likely FSSAI Labelling & Display Regs 2020, not LMPC. *(plan §2.2)*
+- [ ] **Does the SIH26034 problem statement itself call for offline operation?** The
+  2026-09-10 decision removes the offline verdict. If the problem statement or the
+  evaluation rubric names offline / low-connectivity field use, that is a scoring risk
+  worth knowing about before `A-1` is built rather than after. Checkable in an afternoon;
+  ask a mentor or re-read the statement. **This is a question about the rubric, not a
+  reopening of the decision.**
+- [ ] **What is the Cloud Vision free-tier limit and current spend?** Every field-trial
+  replay costs requests. Worth knowing before bulk scanning, not after a surprise bill.
 
 ---
 
@@ -321,7 +364,7 @@ Status: `[ ]` todo · `[>]` in progress · `[x]` done · `[!]` blocked · `[~]` 
 
 - [ ] `T-2.1` Text normalisation pass (shared spec, both runtimes) · *plan §7.3*
 - [ ] `T-2.2` Cascade Stage A — direct pattern match · *plan §7.2*
-- [ ] `T-2.3` Cascade Stage B — anchor–value spatial association · *plan §7.2* **(highest-value task in the project)**
+- [>] `T-2.3` Cascade Stage B — anchor–value spatial association · *plan §7.2* **(highest-value task in the project)** — **pulled forward as demo phase `A-4`**
 - [ ] `T-2.4` Cascade Stage C — shape-only recovery, advisory-capped · *plan §7.2*
 - [ ] `T-2.5` Lexicons `en` / `hi` · *plan §7.4*
 - [ ] `T-2.6` Barcode decode + GS1 check digit + prefix region · *plan §6.2, §9.1*
@@ -333,9 +376,9 @@ Status: `[ ]` todo · `[>]` in progress · `[x]` done · `[!]` blocked · `[~]` 
 *Goal: end-to-end scan in aeroplane mode, then again online showing refinement.*
 
 - [ ] `T-3.1` Panel capture (full-res, replaces v1 per-field crops) · *plan §6.2 S4*
-- [ ] `T-3.2` Upload outbox + resumable idempotent sync · *plan §13.2, §13.3*
-- [ ] `T-3.3` OCR adapters behind `OCRProvider` — Cloud Vision + PaddleOCR · *plan §5.1, §17*
-- [ ] `T-3.4` On-device provisional verdict · *plan §6.1*
+- [!] `T-3.2` Upload outbox + resumable idempotent sync · *plan §13.2, §13.3* — **re-scope: assumes offline capture then sync; the app no longer scans offline**
+- [>] `T-3.3` OCR adapters behind `OCRProvider` — Cloud Vision + PaddleOCR · *plan §5.1, §17* — **pulled forward as demo phases `A-0`/`A-1`/`A-2`**
+- [!] `T-3.4` On-device provisional verdict · *plan §6.1* — **re-scope or cut: ML Kit is barred from producing a verdict (2026-09-10 decision)**
 - [ ] `T-3.5` Server refined verdict + merge-in-place · *plan §6.1*
 - [ ] `T-3.6` Verdict screen — findings, citations, evidence crops · *plan §11.2*
 - [ ] `T-3.7` Scale-free geometry — Rule 8(2) parity, Rule 9 spacing, co-location · *plan §8.2*
@@ -368,7 +411,7 @@ Status: `[ ]` todo · `[>]` in progress · `[x]` done · `[!]` blocked · `[~]` 
 - [ ] `T-6.1` Accuracy push driven by eval's ten worst failures · *plan §15.3*
 - [ ] `T-6.2` Latency measurement + published histogram · *plan §16.4*
 - [ ] `T-6.3` Legal review sign-off recorded in rule pack · *plan §4.5*
-- [ ] `T-6.4` Failure-path rehearsal — no network, no quota, no barcode, exempt pack · *plan §20*
+- [!] `T-6.4` Failure-path rehearsal — no network, no quota, no barcode, exempt pack · *plan §20* — **re-scope: "no network" is now a refusal, not a degraded verdict. Add "no quota" as a real path — Cloud Vision billing can fail mid-demo**
 - [ ] `T-6.5` Demo script rehearsal ×5 including failure paths · *plan §21*
 
 ---
