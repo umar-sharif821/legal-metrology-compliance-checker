@@ -22,6 +22,11 @@ export default tseslint.config(
       // It is typechecked by `npm run typecheck` inside mobile/ instead. Removed with
       // the demo, or folded in properly at T-1.12.
       'mobile/**',
+      // Same reason as mobile/: the demo dashboard is not an npm workspace and its
+      // tsconfig sits outside the root project graph, so type-aware linting cannot
+      // resolve it. It is typechecked by `npm run typecheck` inside dashboard/.
+      // Folded in properly at T-4.4.
+      'dashboard/**',
     ],
   },
   js.configs.recommended,
