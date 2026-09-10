@@ -19,8 +19,17 @@ import type { VerdictStatus } from '../verdict/types';
  * annotation of a measurement, not a change to one; no line, box or timing was touched.
  * There is deliberately no compatibility branch, because a corpus with one schema in it
  * is a corpus nobody has to reason about.
+ *
+ * `/3` is `A-0`: the flat `lines` / `frame` / `timings.ocrMs` triple became `readings`, a
+ * list, each entry naming the engine that produced it. All three were always per-*engine*
+ * facts wearing per-*packet* clothing — a second engine reading the same JPEG can report
+ * different text, a different coordinate frame and a different duration — and `A-0` exists
+ * to put two engines side by side on one packet. The two `/2` records were rewritten in
+ * place into a single reading declaring `provider: "mlkit"`, which is what they always
+ * were: ML Kit is the only engine this project has ever run. Annotation again, not
+ * change — every line, box and millisecond is byte-identical to what was committed.
  */
-export const RECORD_SCHEMA_ID = 'lmscan.field-trial/2';
+export const RECORD_SCHEMA_ID = 'lmscan.field-trial/3';
 
 /** Directory name under `Paths.document` on the device, and under `mobile/` on the host. */
 export const TRIAL_DIR = 'field-trial';
@@ -48,6 +57,45 @@ export interface TrialExpectation {
   readonly notes?: string;
 }
 
+/**
+ * One engine's reading of one packet's image.
+ *
+ * Added by `A-0`. The device writes exactly one of these, for the engine it ships; a
+ * candidate engine earns a column in the corpus report by replaying `imageFile` on a host
+ * and having its reading appended here. That is the whole mechanism by which a new engine
+ * is scored against packets already collected, without re-photographing anything — with
+ * one real limit: the JPEGs are deliberately not committed, so the replay can only happen
+ * on a machine that still holds them (`mobile/field-trial/README.md`).
+ */
+export interface TrialReading {
+  /**
+   * The engine that produced these lines — an id from `scan/provider.ts`'s `PROVIDERS`.
+   *
+   * Typed as `string`, not the union, for the same reason `stage` is: this shape is
+   * parsed from a file on disk, and a record naming an engine this build does not know
+   * must survive being read so the suite can say so plainly, rather than fail to parse.
+   */
+  readonly provider: string;
+  /** When this reading was taken. Not the packet's `recordedAt` — a replay happens later. */
+  readonly readAt: string;
+  /** Wall-clock milliseconds this engine took, on whatever hardware ran it (P8). */
+  readonly ocrMs: number;
+  /**
+   * The pixel frame *this engine's* boxes are expressed in.
+   *
+   * Per reading, not per packet: two engines handed the same JPEG can disagree about its
+   * EXIF orientation, and a box read against the wrong frame lands an evidence crop on
+   * the wrong part of the label (P7).
+   */
+  readonly frame: {
+    readonly imageWidth: number;
+    readonly imageHeight: number;
+    readonly coordinatesTransposed: boolean;
+  };
+  /** The raw lines, exactly as this engine returned them. Never mutated. */
+  readonly lines: readonly OcrLine[];
+}
+
 export interface FieldTrialRecord {
   readonly schema: string;
   readonly recordedAt: string;
@@ -65,11 +113,24 @@ export interface FieldTrialRecord {
    * is the point rather than a bug (P8).
    */
   readonly source: CaptureSource;
-  readonly frame: {
-    readonly imageWidth: number;
-    readonly imageHeight: number;
-    readonly coordinatesTransposed: boolean;
-  };
+  /**
+   * Which reading the device itself took — the one `extracted`, `verdict` and the
+   * `extractMs` / `evaluateMs` timings below describe.
+   *
+   * Named rather than left as "the first one". Every other reading in the list was
+   * appended later by replaying `imageFile` on a host, and nothing about those was ever
+   * on a phone; a reader who cannot tell which is which cannot tell a measured latency
+   * from an imported one (P8).
+   */
+  readonly recordedProvider: string;
+  /**
+   * One entry per engine that has read this packet's image. At least one.
+   *
+   * This list is the whole point of the record. Everything else is the app's opinion and
+   * can be recomputed; these lines are the measurement, and once the packet is back on a
+   * shelf they cannot be obtained again.
+   */
+  readonly readings: readonly TrialReading[];
   readonly timings: {
     /**
      * Shutter-to-file milliseconds, or `null` for an upload.
@@ -79,18 +140,9 @@ export interface FieldTrialRecord {
      * quietly drag down any latency average computed over the corpus (P4, P8).
      */
     readonly captureMs: number | null;
-    readonly ocrMs: number;
     readonly extractMs: number;
     readonly evaluateMs: number;
   };
-  /**
-   * The raw lines, exactly as the engine returned them.
-   *
-   * This is the whole point of the record. Everything else here is the app's opinion and
-   * can be recomputed; these lines are the measurement, and once the packet is back on a
-   * shelf they cannot be obtained again.
-   */
-  readonly lines: readonly OcrLine[];
   /** What the cascade recovered at record time — the "note what was missed" column. */
   readonly extracted: readonly {
     readonly fieldId: string;

@@ -24,6 +24,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { RECORD_SCHEMA_ID, TRIAL_DIR, slugify, type FieldTrialRecord } from './recordTypes';
+import type { OcrProviderId } from './provider';
 import type { CaptureSource, ExtractionResult, OcrFrame } from './types';
 import type { Verdict } from '../verdict/types';
 
@@ -59,6 +60,13 @@ export interface RecordInput {
   readonly captureMs: number | null;
   /** Where the image came from. Carried, never guessed — see `recordTypes.ts`. */
   readonly source: CaptureSource;
+  /**
+   * Which engine read the frame — carried from the capture path, never assumed here.
+   *
+   * The recorder has no business naming an engine it did not run. If a second provider is
+   * ever wired into the app, this is the one line that keeps its records honest (P8).
+   */
+  readonly provider: OcrProviderId;
   readonly frame: OcrFrame;
   readonly extraction: ExtractionResult;
   readonly verdict: Verdict;
@@ -102,18 +110,27 @@ export function recordCapture(input: RecordInput): RecordResult {
     packet: input.packet,
     imageFile: imageName,
     source: input.source,
-    frame: {
-      imageWidth: input.frame.imageWidth,
-      imageHeight: input.frame.imageHeight,
-      coordinatesTransposed: input.frame.coordinatesTransposed,
-    },
+    recordedProvider: input.provider,
+    // One reading, because the device ran one engine. A host replay appends to this list
+    // later; nothing on the phone ever writes a second entry (`recordTypes.ts`, `/3`).
+    readings: [
+      {
+        provider: input.provider,
+        readAt: new Date().toISOString(),
+        ocrMs: input.frame.ocrMs,
+        frame: {
+          imageWidth: input.frame.imageWidth,
+          imageHeight: input.frame.imageHeight,
+          coordinatesTransposed: input.frame.coordinatesTransposed,
+        },
+        lines: input.frame.lines.map((line) => ({ text: line.text, box: line.box })),
+      },
+    ],
     timings: {
       captureMs: input.captureMs,
-      ocrMs: input.frame.ocrMs,
       extractMs: input.extraction.extractMs,
       evaluateMs: input.verdict.timings.evaluateMs,
     },
-    lines: input.frame.lines.map((line) => ({ text: line.text, box: line.box })),
     extracted: input.extraction.fields.map((field) => ({
       fieldId: field.fieldId,
       value: field.value,

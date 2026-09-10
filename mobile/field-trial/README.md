@@ -30,6 +30,61 @@ shutter this app timed, and a zero there would join any latency average silently
 Records 001 and 002 were written before `C-0` and were annotated with
 `"source": "viewfinder"` when the field was added. Nothing else in them was touched.
 
+## `readings` — one line set per OCR engine (`A-0`)
+
+A record does not hold *the* lines. It holds a `readings` list, and each entry names the
+engine that produced it:
+
+```json
+"recordedProvider": "mlkit",
+"readings": [
+  {
+    "provider": "mlkit",
+    "readAt": "2026-09-10T06:21:07.906Z",
+    "ocrMs": 727,
+    "frame": { "imageWidth": 3072, "imageHeight": 4096, "coordinatesTransposed": true },
+    "lines": [ ... ]
+  }
+]
+```
+
+`ocrMs` and `frame` live inside the reading, not beside it, because both are facts about
+the *engine*: two engines handed the same JPEG can take different times and can disagree
+about the image's EXIF orientation.
+
+`recordedProvider` names the reading the **device** took — the one `extracted`, `verdict`
+and `timings.extractMs` / `timings.evaluateMs` describe. Every other reading was appended
+later on a host and was never on a phone, so a latency read off one of those is not a
+device measurement (P8).
+
+Every `provider` id must appear in `src/scan/provider.ts`'s `PROVIDERS`, or the suite
+refuses the record. An unattributed line set is not a measurement.
+
+### Adding a second engine's column
+
+1. Add it to `PROVIDERS` in `src/scan/provider.ts` and to the `OcrProviderId` union.
+2. Run each packet's JPEG through it and append a reading to that record's `readings`.
+3. `npm test` prints the per-provider table with its column filled in. **No test changes.**
+
+**The JPEGs are not in the repository** (below), so step 2 can only be done on a machine
+that still holds them. That is the real limit on scoring a new engine against packets
+already collected — worth knowing before deleting a phone's `field-trial` directory.
+
+A packet a provider has not read is reported as **not measured**, never as a zero: an
+engine that has not been tried and an engine that failed are not the same claim (P9).
+
+### How the table scores
+
+Precision decides (**P3**): a wrong value or a false flag counts against it, a miss does
+not. Recall is printed beside it and does not decide. Correctly *withholding* a value is
+counted as `withheld` and is **not** scored as a hit — otherwise an engine that reads
+nothing would score perfectly.
+
+Read the `[reference]` row as a **regression indicator, not an accuracy score**. It cannot
+fall below 100% while the suite is green, because the same `expect` blocks drive both it
+and the assertions, and they were written while reading ML Kit's own output. A candidate
+engine's row against it is the comparison that carries information.
+
 The matching `NNN-<slug>.jpg` is **not** committed — see `.gitignore`. Tuning changes
 lexicons and shapes, which operate on lines, so the JSON alone is the replay corpus. The
 image is only for looking at a packet again with your own eyes, and ten full-resolution

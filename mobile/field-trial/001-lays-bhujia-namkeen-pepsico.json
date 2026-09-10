@@ -1,500 +1,507 @@
 {
-  "schema": "lmscan.field-trial/2",
+  "schema": "lmscan.field-trial/3",
   "recordedAt": "2026-09-10T05:52:54.236Z",
   "seq": 1,
   "packet": "Lays Bhujia Namkeen PepsiCo",
   "imageFile": "001-lays-bhujia-namkeen-pepsico.jpg",
   "source": "viewfinder",
-  "frame": {
-    "imageWidth": 3072,
-    "imageHeight": 4096,
-    "coordinatesTransposed": true
-  },
+  "recordedProvider": "mlkit",
+  "readings": [
+    {
+      "provider": "mlkit",
+      "readAt": "2026-09-10T05:52:54.236Z",
+      "ocrMs": 751,
+      "frame": {
+        "imageWidth": 3072,
+        "imageHeight": 4096,
+        "coordinatesTransposed": true
+      },
+      "lines": [
+        {
+          "text": "Hea bakers",
+          "box": {
+            "x": 1334,
+            "y": 5,
+            "width": 352,
+            "height": 80
+          }
+        },
+        {
+          "text": "AFP Manulak",
+          "box": {
+            "x": 1329,
+            "y": 63,
+            "width": 245,
+            "height": 79
+          }
+        },
+        {
+          "text": "Naltodextrin), Gram Meal (0.59%).",
+          "box": {
+            "x": 1185,
+            "y": 1014,
+            "width": 704,
+            "height": 139
+          }
+        },
+        {
+          "text": "\"As flavouring agent.",
+          "box": {
+            "x": 1176,
+            "y": 1113,
+            "width": 443,
+            "height": 95
+          }
+        },
+        {
+          "text": "lb STEEL LP, Lic n",
+          "box": {
+            "x": 1407,
+            "y": 140,
+            "width": 396,
+            "height": 81
+          }
+        },
+        {
+          "text": "Ods, Lic. No. 11221999000261,",
+          "box": {
+            "x": 1470,
+            "y": 222,
+            "width": 608,
+            "height": 207
+          }
+        },
+        {
+          "text": "sPvt Ltd., Lic. No. 10521999000044,.",
+          "box": {
+            "x": 1552,
+            "y": 317,
+            "width": 642,
+            "height": 226
+          }
+        },
+        {
+          "text": "0y Agro Foods s Pvt Ltd., Lic No. 12824999000577",
+          "box": {
+            "x": 1358,
+            "y": 358,
+            "width": 896,
+            "height": 282
+          }
+        },
+        {
+          "text": "PROPRIETARYFOOD--NAMKEEN(15.1)",
+          "box": {
+            "x": 1246,
+            "y": 482,
+            "width": 821,
+            "height": 222
+          }
+        },
+        {
+          "text": "INGREDIENTS: Cereal Products (6779%) (Rice Meal (44%),",
+          "box": {
+            "x": 1233,
+            "y": 541,
+            "width": 1144,
+            "height": 420
+          }
+        },
+        {
+          "text": "and Condiments, lodised Salt, Sugar, Flavour (Natural and",
+          "box": {
+            "x": 1212,
+            "y": 718,
+            "width": 1147,
+            "height": 373
+          }
+        },
+        {
+          "text": "Con Meal (236), Edible Vegetable 0i, *Seasoning (Spices",
+          "box": {
+            "x": 1227,
+            "y": 651,
+            "width": 1164,
+            "height": 334
+          }
+        },
+        {
+          "text": "Nature ldentical | Flavouring Substances), Black Salt, Tomato",
+          "box": {
+            "x": 1214,
+            "y": 816,
+            "width": 1140,
+            "height": 322
+          }
+        },
+        {
+          "text": "Powder, Acidity Regulators (330,296, 334), Colour (160),",
+          "box": {
+            "x": 1203,
+            "y": 890,
+            "width": 1148,
+            "height": 333
+          }
+        },
+        {
+          "text": "To know the specithc type of oil used and its saturated fat",
+          "box": {
+            "x": 1200,
+            "y": 1172,
+            "width": 1107,
+            "height": 255
+          }
+        },
+        {
+          "text": "1alue, match the symbol 0 or # with the last character of",
+          "box": {
+            "x": 1165,
+            "y": 1246,
+            "width": 1134,
+            "height": 272
+          }
+        },
+        {
+          "text": "batch number where denotes Palmolein and # denotes",
+          "box": {
+            "x": 1162,
+            "y": 1335,
+            "width": 1126,
+            "height": 253
+          }
+        },
+        {
+          "text": "Rice Bran OL.",
+          "box": {
+            "x": 1165,
+            "y": 1446,
+            "width": 248,
+            "height": 74
+          }
+        },
+        {
+          "text": "Nutrition lnformation'",
+          "box": {
+            "x": 1174,
+            "y": 1568,
+            "width": 514,
+            "height": 111
+          }
+        },
+        {
+          "text": "Nutrients",
+          "box": {
+            "x": 1148,
+            "y": 1642,
+            "width": 158,
+            "height": 65
+          }
+        },
+        {
+          "text": "Potein",
+          "box": {
+            "x": 1115,
+            "y": 1781,
+            "width": 141,
+            "height": 64
+          }
+        },
+        {
+          "text": "Gbotydrate",
+          "box": {
+            "x": 1108,
+            "y": 1838,
+            "width": 258,
+            "height": 92
+          }
+        },
+        {
+          "text": "Total Fat",
+          "box": {
+            "x": 1104,
+            "y": 2045,
+            "width": 150,
+            "height": 78
+          }
+        },
+        {
+          "text": "Tota Sugars",
+          "box": {
+            "x": 1162,
+            "y": 1914,
+            "width": 217,
+            "height": 90
+          }
+        },
+        {
+          "text": "Added Sugas",
+          "box": {
+            "x": 1183,
+            "y": 1981,
+            "width": 254,
+            "height": 98
+          }
+        },
+        {
+          "text": "Tans Fat",
+          "box": {
+            "x": 1109,
+            "y": 2305,
+            "width": 165,
+            "height": 83
+          }
+        },
+        {
+          "text": "Sodu",
+          "box": {
+            "x": 1049,
+            "y": 2364,
+            "width": 167,
+            "height": 82
+          }
+        },
+        {
+          "text": "Saturated Fa",
+          "box": {
+            "x": 1142,
+            "y": 2123,
+            "width": 220,
+            "height": 75
+          }
+        },
+        {
+          "text": "ni",
+          "box": {
+            "x": 1800,
+            "y": 112,
+            "width": 52,
+            "height": 58
+          }
+        },
+        {
+          "text": "UNTT SALEPRICE",
+          "box": {
+            "x": 1011,
+            "y": 2877,
+            "width": 482,
+            "height": 84
+          }
+        },
+        {
+          "text": "NET QTY:",
+          "box": {
+            "x": 942,
+            "y": 3365,
+            "width": 263,
+            "height": 118
+          }
+        },
+        {
+          "text": "Pee 100g",
+          "box": {
+            "x": 1787,
+            "y": 1697,
+            "width": 160,
+            "height": 77
+          }
+        },
+        {
+          "text": "554 kal",
+          "box": {
+            "x": 1779,
+            "y": 1771,
+            "width": 133,
+            "height": 70
+          }
+        },
+        {
+          "text": "6",
+          "box": {
+            "x": 1808,
+            "y": 1848,
+            "width": 61,
+            "height": 55
+          }
+        },
+        {
+          "text": "5759",
+          "box": {
+            "x": 1775,
+            "y": 1909,
+            "width": 105,
+            "height": 73
+          }
+        },
+        {
+          "text": "149",
+          "box": {
+            "x": 1767,
+            "y": 1970,
+            "width": 90,
+            "height": 69
+          }
+        },
+        {
+          "text": "08g",
+          "box": {
+            "x": 1750,
+            "y": 2029,
+            "width": 98,
+            "height": 70
+          }
+        },
+        {
+          "text": "3349",
+          "box": {
+            "x": 1728,
+            "y": 2088,
+            "width": 117,
+            "height": 72
+          }
+        },
+        {
+          "text": "ad<0gsa single consumption gadt",
+          "box": {
+            "x": 1022,
+            "y": 2553,
+            "width": 821,
+            "height": 94
+          }
+        },
+        {
+          "text": "51g",
+          "box": {
+            "x": 1711,
+            "y": 2162,
+            "width": 113,
+            "height": 54
+          }
+        },
+        {
+          "text": "NO. OFSERVES",
+          "box": {
+            "x": 1001,
+            "y": 2991,
+            "width": 404,
+            "height": 102
+          }
+        },
+        {
+          "text": "PERPAOK/B. NO:43EE",
+          "box": {
+            "x": 979,
+            "y": 3085,
+            "width": 879,
+            "height": 99
+          }
+        },
+        {
+          "text": "MFD & USE BY: 52z8ZNZI",
+          "box": {
+            "x": 996,
+            "y": 3151,
+            "width": 983,
+            "height": 211
+          }
+        },
+        {
+          "text": "Serve Size 20g**",
+          "box": {
+            "x": 2006,
+            "y": 1670,
+            "width": 243,
+            "height": 81
+          }
+        },
+        {
+          "text": "5ROA Per Seve",
+          "box": {
+            "x": 2022,
+            "y": 1729,
+            "width": 228,
+            "height": 87
+          }
+        },
+        {
+          "text": "0.3%",
+          "box": {
+            "x": 2052,
+            "y": 2061,
+            "width": 90,
+            "height": 57
+          }
+        },
+        {
+          "text": "10%",
+          "box": {
+            "x": 2046,
+            "y": 2124,
+            "width": 77,
+            "height": 53
+          }
+        },
+        {
+          "text": "14%9",
+          "box": {
+            "x": 2024,
+            "y": 2183,
+            "width": 79,
+            "height": 49
+          }
+        },
+        {
+          "text": "7",
+          "box": {
+            "x": 2018,
+            "y": 2273,
+            "width": 71,
+            "height": 64
+          }
+        },
+        {
+          "text": "15",
+          "box": {
+            "x": 2007,
+            "y": 2339,
+            "width": 69,
+            "height": 58
+          }
+        },
+        {
+          "text": "A",
+          "box": {
+            "x": 2462,
+            "y": 2883,
+            "width": 30,
+            "height": 63
+          }
+        },
+        {
+          "text": "MARKETEO",
+          "box": {
+            "x": 2559,
+            "y": 1993,
+            "width": 174,
+            "height": 79
+          }
+        },
+        {
+          "text": "PecsCrinti",
+          "box": {
+            "x": 2562,
+            "y": 2059,
+            "width": 166,
+            "height": 77
+          }
+        }
+      ]
+    }
+  ],
   "timings": {
     "captureMs": 309,
-    "ocrMs": 751,
     "extractMs": 1,
     "evaluateMs": 0
   },
-  "lines": [
-    {
-      "text": "Hea bakers",
-      "box": {
-        "x": 1334,
-        "y": 5,
-        "width": 352,
-        "height": 80
-      }
-    },
-    {
-      "text": "AFP Manulak",
-      "box": {
-        "x": 1329,
-        "y": 63,
-        "width": 245,
-        "height": 79
-      }
-    },
-    {
-      "text": "Naltodextrin), Gram Meal (0.59%).",
-      "box": {
-        "x": 1185,
-        "y": 1014,
-        "width": 704,
-        "height": 139
-      }
-    },
-    {
-      "text": "\"As flavouring agent.",
-      "box": {
-        "x": 1176,
-        "y": 1113,
-        "width": 443,
-        "height": 95
-      }
-    },
-    {
-      "text": "lb STEEL LP, Lic n",
-      "box": {
-        "x": 1407,
-        "y": 140,
-        "width": 396,
-        "height": 81
-      }
-    },
-    {
-      "text": "Ods, Lic. No. 11221999000261,",
-      "box": {
-        "x": 1470,
-        "y": 222,
-        "width": 608,
-        "height": 207
-      }
-    },
-    {
-      "text": "sPvt Ltd., Lic. No. 10521999000044,.",
-      "box": {
-        "x": 1552,
-        "y": 317,
-        "width": 642,
-        "height": 226
-      }
-    },
-    {
-      "text": "0y Agro Foods s Pvt Ltd., Lic No. 12824999000577",
-      "box": {
-        "x": 1358,
-        "y": 358,
-        "width": 896,
-        "height": 282
-      }
-    },
-    {
-      "text": "PROPRIETARYFOOD--NAMKEEN(15.1)",
-      "box": {
-        "x": 1246,
-        "y": 482,
-        "width": 821,
-        "height": 222
-      }
-    },
-    {
-      "text": "INGREDIENTS: Cereal Products (6779%) (Rice Meal (44%),",
-      "box": {
-        "x": 1233,
-        "y": 541,
-        "width": 1144,
-        "height": 420
-      }
-    },
-    {
-      "text": "and Condiments, lodised Salt, Sugar, Flavour (Natural and",
-      "box": {
-        "x": 1212,
-        "y": 718,
-        "width": 1147,
-        "height": 373
-      }
-    },
-    {
-      "text": "Con Meal (236), Edible Vegetable 0i, *Seasoning (Spices",
-      "box": {
-        "x": 1227,
-        "y": 651,
-        "width": 1164,
-        "height": 334
-      }
-    },
-    {
-      "text": "Nature ldentical | Flavouring Substances), Black Salt, Tomato",
-      "box": {
-        "x": 1214,
-        "y": 816,
-        "width": 1140,
-        "height": 322
-      }
-    },
-    {
-      "text": "Powder, Acidity Regulators (330,296, 334), Colour (160),",
-      "box": {
-        "x": 1203,
-        "y": 890,
-        "width": 1148,
-        "height": 333
-      }
-    },
-    {
-      "text": "To know the specithc type of oil used and its saturated fat",
-      "box": {
-        "x": 1200,
-        "y": 1172,
-        "width": 1107,
-        "height": 255
-      }
-    },
-    {
-      "text": "1alue, match the symbol 0 or # with the last character of",
-      "box": {
-        "x": 1165,
-        "y": 1246,
-        "width": 1134,
-        "height": 272
-      }
-    },
-    {
-      "text": "batch number where denotes Palmolein and # denotes",
-      "box": {
-        "x": 1162,
-        "y": 1335,
-        "width": 1126,
-        "height": 253
-      }
-    },
-    {
-      "text": "Rice Bran OL.",
-      "box": {
-        "x": 1165,
-        "y": 1446,
-        "width": 248,
-        "height": 74
-      }
-    },
-    {
-      "text": "Nutrition lnformation'",
-      "box": {
-        "x": 1174,
-        "y": 1568,
-        "width": 514,
-        "height": 111
-      }
-    },
-    {
-      "text": "Nutrients",
-      "box": {
-        "x": 1148,
-        "y": 1642,
-        "width": 158,
-        "height": 65
-      }
-    },
-    {
-      "text": "Potein",
-      "box": {
-        "x": 1115,
-        "y": 1781,
-        "width": 141,
-        "height": 64
-      }
-    },
-    {
-      "text": "Gbotydrate",
-      "box": {
-        "x": 1108,
-        "y": 1838,
-        "width": 258,
-        "height": 92
-      }
-    },
-    {
-      "text": "Total Fat",
-      "box": {
-        "x": 1104,
-        "y": 2045,
-        "width": 150,
-        "height": 78
-      }
-    },
-    {
-      "text": "Tota Sugars",
-      "box": {
-        "x": 1162,
-        "y": 1914,
-        "width": 217,
-        "height": 90
-      }
-    },
-    {
-      "text": "Added Sugas",
-      "box": {
-        "x": 1183,
-        "y": 1981,
-        "width": 254,
-        "height": 98
-      }
-    },
-    {
-      "text": "Tans Fat",
-      "box": {
-        "x": 1109,
-        "y": 2305,
-        "width": 165,
-        "height": 83
-      }
-    },
-    {
-      "text": "Sodu",
-      "box": {
-        "x": 1049,
-        "y": 2364,
-        "width": 167,
-        "height": 82
-      }
-    },
-    {
-      "text": "Saturated Fa",
-      "box": {
-        "x": 1142,
-        "y": 2123,
-        "width": 220,
-        "height": 75
-      }
-    },
-    {
-      "text": "ni",
-      "box": {
-        "x": 1800,
-        "y": 112,
-        "width": 52,
-        "height": 58
-      }
-    },
-    {
-      "text": "UNTT SALEPRICE",
-      "box": {
-        "x": 1011,
-        "y": 2877,
-        "width": 482,
-        "height": 84
-      }
-    },
-    {
-      "text": "NET QTY:",
-      "box": {
-        "x": 942,
-        "y": 3365,
-        "width": 263,
-        "height": 118
-      }
-    },
-    {
-      "text": "Pee 100g",
-      "box": {
-        "x": 1787,
-        "y": 1697,
-        "width": 160,
-        "height": 77
-      }
-    },
-    {
-      "text": "554 kal",
-      "box": {
-        "x": 1779,
-        "y": 1771,
-        "width": 133,
-        "height": 70
-      }
-    },
-    {
-      "text": "6",
-      "box": {
-        "x": 1808,
-        "y": 1848,
-        "width": 61,
-        "height": 55
-      }
-    },
-    {
-      "text": "5759",
-      "box": {
-        "x": 1775,
-        "y": 1909,
-        "width": 105,
-        "height": 73
-      }
-    },
-    {
-      "text": "149",
-      "box": {
-        "x": 1767,
-        "y": 1970,
-        "width": 90,
-        "height": 69
-      }
-    },
-    {
-      "text": "08g",
-      "box": {
-        "x": 1750,
-        "y": 2029,
-        "width": 98,
-        "height": 70
-      }
-    },
-    {
-      "text": "3349",
-      "box": {
-        "x": 1728,
-        "y": 2088,
-        "width": 117,
-        "height": 72
-      }
-    },
-    {
-      "text": "ad<0gsa single consumption gadt",
-      "box": {
-        "x": 1022,
-        "y": 2553,
-        "width": 821,
-        "height": 94
-      }
-    },
-    {
-      "text": "51g",
-      "box": {
-        "x": 1711,
-        "y": 2162,
-        "width": 113,
-        "height": 54
-      }
-    },
-    {
-      "text": "NO. OFSERVES",
-      "box": {
-        "x": 1001,
-        "y": 2991,
-        "width": 404,
-        "height": 102
-      }
-    },
-    {
-      "text": "PERPAOK/B. NO:43EE",
-      "box": {
-        "x": 979,
-        "y": 3085,
-        "width": 879,
-        "height": 99
-      }
-    },
-    {
-      "text": "MFD & USE BY: 52z8ZNZI",
-      "box": {
-        "x": 996,
-        "y": 3151,
-        "width": 983,
-        "height": 211
-      }
-    },
-    {
-      "text": "Serve Size 20g**",
-      "box": {
-        "x": 2006,
-        "y": 1670,
-        "width": 243,
-        "height": 81
-      }
-    },
-    {
-      "text": "5ROA Per Seve",
-      "box": {
-        "x": 2022,
-        "y": 1729,
-        "width": 228,
-        "height": 87
-      }
-    },
-    {
-      "text": "0.3%",
-      "box": {
-        "x": 2052,
-        "y": 2061,
-        "width": 90,
-        "height": 57
-      }
-    },
-    {
-      "text": "10%",
-      "box": {
-        "x": 2046,
-        "y": 2124,
-        "width": 77,
-        "height": 53
-      }
-    },
-    {
-      "text": "14%9",
-      "box": {
-        "x": 2024,
-        "y": 2183,
-        "width": 79,
-        "height": 49
-      }
-    },
-    {
-      "text": "7",
-      "box": {
-        "x": 2018,
-        "y": 2273,
-        "width": 71,
-        "height": 64
-      }
-    },
-    {
-      "text": "15",
-      "box": {
-        "x": 2007,
-        "y": 2339,
-        "width": 69,
-        "height": 58
-      }
-    },
-    {
-      "text": "A",
-      "box": {
-        "x": 2462,
-        "y": 2883,
-        "width": 30,
-        "height": 63
-      }
-    },
-    {
-      "text": "MARKETEO",
-      "box": {
-        "x": 2559,
-        "y": 1993,
-        "width": 174,
-        "height": 79
-      }
-    },
-    {
-      "text": "PecsCrinti",
-      "box": {
-        "x": 2562,
-        "y": 2059,
-        "width": 166,
-        "height": 77
-      }
-    }
-  ],
   "extracted": [
     {
       "fieldId": "commodity_name",

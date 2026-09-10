@@ -1,509 +1,516 @@
 {
-  "schema": "lmscan.field-trial/2",
+  "schema": "lmscan.field-trial/3",
   "recordedAt": "2026-09-10T06:21:07.906Z",
   "seq": 2,
   "packet": "Lays Bhujia Namkeen Capture 2",
   "imageFile": "002-lays-bhujia-namkeen-capture-2.jpg",
   "source": "viewfinder",
-  "frame": {
-    "imageWidth": 3072,
-    "imageHeight": 4096,
-    "coordinatesTransposed": true
-  },
+  "recordedProvider": "mlkit",
+  "readings": [
+    {
+      "provider": "mlkit",
+      "readAt": "2026-09-10T06:21:07.906Z",
+      "ocrMs": 727,
+      "frame": {
+        "imageWidth": 3072,
+        "imageHeight": 4096,
+        "coordinatesTransposed": true
+      },
+      "lines": [
+        {
+          "text": "CREDIENTE tey",
+          "box": {
+            "x": 698,
+            "y": 853,
+            "width": 311,
+            "height": 204
+          }
+        },
+        {
+          "text": "Condiments, sed Sath, Sea n tSce",
+          "box": {
+            "x": 760,
+            "y": 958,
+            "width": 799,
+            "height": 148
+          }
+        },
+        {
+          "text": "Wtre ldenticat Flavouring Sbtac),ad Sa,",
+          "box": {
+            "x": 710,
+            "y": 916,
+            "width": 800,
+            "height": 343
+          }
+        },
+        {
+          "text": "wder Acddty Regulators 330,296, 334), Colo (160",
+          "box": {
+            "x": 746,
+            "y": 1010,
+            "width": 837,
+            "height": 220
+          }
+        },
+        {
+          "text": "todextrin), Gram Meal (0.5%)",
+          "box": {
+            "x": 758,
+            "y": 1065,
+            "width": 481,
+            "height": 193
+          }
+        },
+        {
+          "text": "vatle Ve o",
+          "box": {
+            "x": 953,
+            "y": 902,
+            "width": 469,
+            "height": 77
+          }
+        },
+        {
+          "text": "favouning agent",
+          "box": {
+            "x": 783,
+            "y": 1153,
+            "width": 244,
+            "height": 151
+          }
+        },
+        {
+          "text": "AKe Bran Oii",
+          "box": {
+            "x": 748,
+            "y": 1409,
+            "width": 191,
+            "height": 143
+          }
+        },
+        {
+          "text": "btch number where denotes Palmolein and dente",
+          "box": {
+            "x": 750,
+            "y": 1276,
+            "width": 904,
+            "height": 211
+          }
+        },
+        {
+          "text": "alve match the symboi or with the last hartok",
+          "box": {
+            "x": 754,
+            "y": 1220,
+            "width": 905,
+            "height": 214
+          }
+        },
+        {
+          "text": "know the specifhc type of oil used an ts",
+          "box": {
+            "x": 789,
+            "y": 1176,
+            "width": 664,
+            "height": 180
+          }
+        },
+        {
+          "text": "st",
+          "box": {
+            "x": 1430,
+            "y": 1264,
+            "width": 141,
+            "height": 65
+          }
+        },
+        {
+          "text": "Netrients",
+          "box": {
+            "x": 773,
+            "y": 1572,
+            "width": 128,
+            "height": 98
+          }
+        },
+        {
+          "text": "trition Informatio",
+          "box": {
+            "x": 812,
+            "y": 1435,
+            "width": 345,
+            "height": 160
+          }
+        },
+        {
+          "text": "Potein",
+          "box": {
+            "x": 792,
+            "y": 1690,
+            "width": 89,
+            "height": 71
+          }
+        },
+        {
+          "text": "arbohydrate",
+          "box": {
+            "x": 792,
+            "y": 1693,
+            "width": 184,
+            "height": 119
+          }
+        },
+        {
+          "text": "otal Sugars",
+          "box": {
+            "x": 820,
+            "y": 1739,
+            "width": 182,
+            "height": 106
+          }
+        },
+        {
+          "text": "Added Sugars",
+          "box": {
+            "x": 833,
+            "y": 1774,
+            "width": 222,
+            "height": 112
+          }
+        },
+        {
+          "text": "otal Fat",
+          "box": {
+            "x": 832,
+            "y": 1873,
+            "width": 96,
+            "height": 76
+          }
+        },
+        {
+          "text": "ee",
+          "box": {
+            "x": 1137,
+            "y": 709,
+            "width": 30,
+            "height": 34
+          }
+        },
+        {
+          "text": "Saturated Fat",
+          "box": {
+            "x": 831,
+            "y": 1884,
+            "width": 216,
+            "height": 118
+          }
+        },
+        {
+          "text": "Tans Fat",
+          "box": {
+            "x": 866,
+            "y": 2051,
+            "width": 138,
+            "height": 94
+          }
+        },
+        {
+          "text": "Sodium",
+          "box": {
+            "x": 837,
+            "y": 2128,
+            "width": 117,
+            "height": 82
+          }
+        },
+        {
+          "text": "Appro kimate Values",
+          "box": {
+            "x": 859,
+            "y": 2120,
+            "width": 275,
+            "height": 129
+          }
+        },
+        {
+          "text": "Per 1009",
+          "box": {
+            "x": 1290,
+            "y": 1502,
+            "width": 134,
+            "height": 57
+          }
+        },
+        {
+          "text": "NO. OFSERVES",
+          "box": {
+            "x": 918,
+            "y": 2615,
+            "width": 371,
+            "height": 174
+          }
+        },
+        {
+          "text": "S5A kcal",
+          "box": {
+            "x": 1313,
+            "y": 1548,
+            "width": 116,
+            "height": 59
+          }
+        },
+        {
+          "text": "UNIT SALE PRICE:",
+          "box": {
+            "x": 921,
+            "y": 2477,
+            "width": 424,
+            "height": 193
+          }
+        },
+        {
+          "text": "69",
+          "box": {
+            "x": 1349,
+            "y": 1601,
+            "width": 52,
+            "height": 50
+          }
+        },
+        {
+          "text": "MFD & USE BY:",
+          "box": {
+            "x": 885,
+            "y": 2843,
+            "width": 428,
+            "height": 154
+          }
+        },
+        {
+          "text": "NET QTY:",
+          "box": {
+            "x": 886,
+            "y": 3013,
+            "width": 267,
+            "height": 123
+          }
+        },
+        {
+          "text": "S15g",
+          "box": {
+            "x": 1342,
+            "y": 1657,
+            "width": 88,
+            "height": 49
+          }
+        },
+        {
+          "text": "14q",
+          "box": {
+            "x": 1354,
+            "y": 1699,
+            "width": 76,
+            "height": 49
+          }
+        },
+        {
+          "text": "089",
+          "box": {
+            "x": 1375,
+            "y": 1754,
+            "width": 72,
+            "height": 44
+          }
+        },
+        {
+          "text": "33.49",
+          "box": {
+            "x": 1376,
+            "y": 1800,
+            "width": 94,
+            "height": 44
+          }
+        },
+        {
+          "text": "15.1g°",
+          "box": {
+            "x": 1371,
+            "y": 1858,
+            "width": 104,
+            "height": 48
+          }
+        },
+        {
+          "text": "HPack<20 g is a single Consumption Dàck",
+          "box": {
+            "x": 848,
+            "y": 2174,
+            "width": 715,
+            "height": 173
+          }
+        },
+        {
+          "text": "PER PACK/ B. NO.:",
+          "box": {
+            "x": 919,
+            "y": 2705,
+            "width": 462,
+            "height": 141
+          }
+        },
+        {
+          "text": "OR,",
+          "box": {
+            "x": 1428,
+            "y": 1910,
+            "width": 55,
+            "height": 42
+          }
+        },
+        {
+          "text": "MIRP RS. 20/- (NCL. OF 42L TAYES)",
+          "box": {
+            "x": 859,
+            "y": 2264,
+            "width": 715,
+            "height": 214
+          }
+        },
+        {
+          "text": "nd",
+          "box": {
+            "x": 1551,
+            "y": 1042,
+            "width": 37,
+            "height": 45
+          }
+        },
+        {
+          "text": "Serve Siae",
+          "box": {
+            "x": 1481,
+            "y": 1490,
+            "width": 130,
+            "height": 54
+          }
+        },
+        {
+          "text": "01g",
+          "box": {
+            "x": 1413,
+            "y": 1994,
+            "width": 85,
+            "height": 50
+          }
+        },
+        {
+          "text": "694 ma",
+          "box": {
+            "x": 1418,
+            "y": 2050,
+            "width": 107,
+            "height": 42
+          }
+        },
+        {
+          "text": "109%",
+          "box": {
+            "x": 1635,
+            "y": 1822,
+            "width": 58,
+            "height": 42
+          }
+        },
+        {
+          "text": "1490",
+          "box": {
+            "x": 1642,
+            "y": 1866,
+            "width": 62,
+            "height": 38
+          }
+        },
+        {
+          "text": "Rs.0.24 /-ER9 o5",
+          "box": {
+            "x": 1395,
+            "y": 2592,
+            "width": 425,
+            "height": 65
+          }
+        },
+        {
+          "text": "4.2/RP 25U826 #",
+          "box": {
+            "x": 1405,
+            "y": 2653,
+            "width": 369,
+            "height": 128
+          }
+        },
+        {
+          "text": "25/08/23 & 22/DV27",
+          "box": {
+            "x": 1419,
+            "y": 2764,
+            "width": 461,
+            "height": 120
+          }
+        },
+        {
+          "text": "84.9g 78 +i)",
+          "box": {
+            "x": 1475,
+            "y": 2868,
+            "width": 419,
+            "height": 169
+          }
+        },
+        {
+          "text": "Pegkan",
+          "box": {
+            "x": 2054,
+            "y": 1790,
+            "width": 149,
+            "height": 74
+          }
+        },
+        {
+          "text": "GURUCRAM-VLNLN",
+          "box": {
+            "x": 2293,
+            "y": 2629,
+            "width": 307,
+            "height": 67
+          }
+        },
+        {
+          "text": "OR EMWAIL KSA",
+          "box": {
+            "x": 2349,
+            "y": 2795,
+            "width": 170,
+            "height": 65
+          }
+        },
+        {
+          "text": "(ONSQUNER FEDANC",
+          "box": {
+            "x": 2373,
+            "y": 2872,
+            "width": 214,
+            "height": 74
+          }
+        }
+      ]
+    }
+  ],
   "timings": {
     "captureMs": 339,
-    "ocrMs": 727,
     "extractMs": 4,
     "evaluateMs": 0
   },
-  "lines": [
-    {
-      "text": "CREDIENTE tey",
-      "box": {
-        "x": 698,
-        "y": 853,
-        "width": 311,
-        "height": 204
-      }
-    },
-    {
-      "text": "Condiments, sed Sath, Sea n tSce",
-      "box": {
-        "x": 760,
-        "y": 958,
-        "width": 799,
-        "height": 148
-      }
-    },
-    {
-      "text": "Wtre ldenticat Flavouring Sbtac),ad Sa,",
-      "box": {
-        "x": 710,
-        "y": 916,
-        "width": 800,
-        "height": 343
-      }
-    },
-    {
-      "text": "wder Acddty Regulators 330,296, 334), Colo (160",
-      "box": {
-        "x": 746,
-        "y": 1010,
-        "width": 837,
-        "height": 220
-      }
-    },
-    {
-      "text": "todextrin), Gram Meal (0.5%)",
-      "box": {
-        "x": 758,
-        "y": 1065,
-        "width": 481,
-        "height": 193
-      }
-    },
-    {
-      "text": "vatle Ve o",
-      "box": {
-        "x": 953,
-        "y": 902,
-        "width": 469,
-        "height": 77
-      }
-    },
-    {
-      "text": "favouning agent",
-      "box": {
-        "x": 783,
-        "y": 1153,
-        "width": 244,
-        "height": 151
-      }
-    },
-    {
-      "text": "AKe Bran Oii",
-      "box": {
-        "x": 748,
-        "y": 1409,
-        "width": 191,
-        "height": 143
-      }
-    },
-    {
-      "text": "btch number where denotes Palmolein and dente",
-      "box": {
-        "x": 750,
-        "y": 1276,
-        "width": 904,
-        "height": 211
-      }
-    },
-    {
-      "text": "alve match the symboi or with the last hartok",
-      "box": {
-        "x": 754,
-        "y": 1220,
-        "width": 905,
-        "height": 214
-      }
-    },
-    {
-      "text": "know the specifhc type of oil used an ts",
-      "box": {
-        "x": 789,
-        "y": 1176,
-        "width": 664,
-        "height": 180
-      }
-    },
-    {
-      "text": "st",
-      "box": {
-        "x": 1430,
-        "y": 1264,
-        "width": 141,
-        "height": 65
-      }
-    },
-    {
-      "text": "Netrients",
-      "box": {
-        "x": 773,
-        "y": 1572,
-        "width": 128,
-        "height": 98
-      }
-    },
-    {
-      "text": "trition Informatio",
-      "box": {
-        "x": 812,
-        "y": 1435,
-        "width": 345,
-        "height": 160
-      }
-    },
-    {
-      "text": "Potein",
-      "box": {
-        "x": 792,
-        "y": 1690,
-        "width": 89,
-        "height": 71
-      }
-    },
-    {
-      "text": "arbohydrate",
-      "box": {
-        "x": 792,
-        "y": 1693,
-        "width": 184,
-        "height": 119
-      }
-    },
-    {
-      "text": "otal Sugars",
-      "box": {
-        "x": 820,
-        "y": 1739,
-        "width": 182,
-        "height": 106
-      }
-    },
-    {
-      "text": "Added Sugars",
-      "box": {
-        "x": 833,
-        "y": 1774,
-        "width": 222,
-        "height": 112
-      }
-    },
-    {
-      "text": "otal Fat",
-      "box": {
-        "x": 832,
-        "y": 1873,
-        "width": 96,
-        "height": 76
-      }
-    },
-    {
-      "text": "ee",
-      "box": {
-        "x": 1137,
-        "y": 709,
-        "width": 30,
-        "height": 34
-      }
-    },
-    {
-      "text": "Saturated Fat",
-      "box": {
-        "x": 831,
-        "y": 1884,
-        "width": 216,
-        "height": 118
-      }
-    },
-    {
-      "text": "Tans Fat",
-      "box": {
-        "x": 866,
-        "y": 2051,
-        "width": 138,
-        "height": 94
-      }
-    },
-    {
-      "text": "Sodium",
-      "box": {
-        "x": 837,
-        "y": 2128,
-        "width": 117,
-        "height": 82
-      }
-    },
-    {
-      "text": "Appro kimate Values",
-      "box": {
-        "x": 859,
-        "y": 2120,
-        "width": 275,
-        "height": 129
-      }
-    },
-    {
-      "text": "Per 1009",
-      "box": {
-        "x": 1290,
-        "y": 1502,
-        "width": 134,
-        "height": 57
-      }
-    },
-    {
-      "text": "NO. OFSERVES",
-      "box": {
-        "x": 918,
-        "y": 2615,
-        "width": 371,
-        "height": 174
-      }
-    },
-    {
-      "text": "S5A kcal",
-      "box": {
-        "x": 1313,
-        "y": 1548,
-        "width": 116,
-        "height": 59
-      }
-    },
-    {
-      "text": "UNIT SALE PRICE:",
-      "box": {
-        "x": 921,
-        "y": 2477,
-        "width": 424,
-        "height": 193
-      }
-    },
-    {
-      "text": "69",
-      "box": {
-        "x": 1349,
-        "y": 1601,
-        "width": 52,
-        "height": 50
-      }
-    },
-    {
-      "text": "MFD & USE BY:",
-      "box": {
-        "x": 885,
-        "y": 2843,
-        "width": 428,
-        "height": 154
-      }
-    },
-    {
-      "text": "NET QTY:",
-      "box": {
-        "x": 886,
-        "y": 3013,
-        "width": 267,
-        "height": 123
-      }
-    },
-    {
-      "text": "S15g",
-      "box": {
-        "x": 1342,
-        "y": 1657,
-        "width": 88,
-        "height": 49
-      }
-    },
-    {
-      "text": "14q",
-      "box": {
-        "x": 1354,
-        "y": 1699,
-        "width": 76,
-        "height": 49
-      }
-    },
-    {
-      "text": "089",
-      "box": {
-        "x": 1375,
-        "y": 1754,
-        "width": 72,
-        "height": 44
-      }
-    },
-    {
-      "text": "33.49",
-      "box": {
-        "x": 1376,
-        "y": 1800,
-        "width": 94,
-        "height": 44
-      }
-    },
-    {
-      "text": "15.1g°",
-      "box": {
-        "x": 1371,
-        "y": 1858,
-        "width": 104,
-        "height": 48
-      }
-    },
-    {
-      "text": "HPack<20 g is a single Consumption Dàck",
-      "box": {
-        "x": 848,
-        "y": 2174,
-        "width": 715,
-        "height": 173
-      }
-    },
-    {
-      "text": "PER PACK/ B. NO.:",
-      "box": {
-        "x": 919,
-        "y": 2705,
-        "width": 462,
-        "height": 141
-      }
-    },
-    {
-      "text": "OR,",
-      "box": {
-        "x": 1428,
-        "y": 1910,
-        "width": 55,
-        "height": 42
-      }
-    },
-    {
-      "text": "MIRP RS. 20/- (NCL. OF 42L TAYES)",
-      "box": {
-        "x": 859,
-        "y": 2264,
-        "width": 715,
-        "height": 214
-      }
-    },
-    {
-      "text": "nd",
-      "box": {
-        "x": 1551,
-        "y": 1042,
-        "width": 37,
-        "height": 45
-      }
-    },
-    {
-      "text": "Serve Siae",
-      "box": {
-        "x": 1481,
-        "y": 1490,
-        "width": 130,
-        "height": 54
-      }
-    },
-    {
-      "text": "01g",
-      "box": {
-        "x": 1413,
-        "y": 1994,
-        "width": 85,
-        "height": 50
-      }
-    },
-    {
-      "text": "694 ma",
-      "box": {
-        "x": 1418,
-        "y": 2050,
-        "width": 107,
-        "height": 42
-      }
-    },
-    {
-      "text": "109%",
-      "box": {
-        "x": 1635,
-        "y": 1822,
-        "width": 58,
-        "height": 42
-      }
-    },
-    {
-      "text": "1490",
-      "box": {
-        "x": 1642,
-        "y": 1866,
-        "width": 62,
-        "height": 38
-      }
-    },
-    {
-      "text": "Rs.0.24 /-ER9 o5",
-      "box": {
-        "x": 1395,
-        "y": 2592,
-        "width": 425,
-        "height": 65
-      }
-    },
-    {
-      "text": "4.2/RP 25U826 #",
-      "box": {
-        "x": 1405,
-        "y": 2653,
-        "width": 369,
-        "height": 128
-      }
-    },
-    {
-      "text": "25/08/23 & 22/DV27",
-      "box": {
-        "x": 1419,
-        "y": 2764,
-        "width": 461,
-        "height": 120
-      }
-    },
-    {
-      "text": "84.9g 78 +i)",
-      "box": {
-        "x": 1475,
-        "y": 2868,
-        "width": 419,
-        "height": 169
-      }
-    },
-    {
-      "text": "Pegkan",
-      "box": {
-        "x": 2054,
-        "y": 1790,
-        "width": 149,
-        "height": 74
-      }
-    },
-    {
-      "text": "GURUCRAM-VLNLN",
-      "box": {
-        "x": 2293,
-        "y": 2629,
-        "width": 307,
-        "height": 67
-      }
-    },
-    {
-      "text": "OR EMWAIL KSA",
-      "box": {
-        "x": 2349,
-        "y": 2795,
-        "width": 170,
-        "height": 65
-      }
-    },
-    {
-      "text": "(ONSQUNER FEDANC",
-      "box": {
-        "x": 2373,
-        "y": 2872,
-        "width": 214,
-        "height": 74
-      }
-    }
-  ],
   "extracted": [
     {
       "fieldId": "net_quantity",

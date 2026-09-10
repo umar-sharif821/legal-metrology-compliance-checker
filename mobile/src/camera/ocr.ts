@@ -1,9 +1,10 @@
 /**
  * The ML Kit adapter — the only file in the app that knows the OCR engine's own shapes.
  *
- * Everything downstream consumes `OcrFrame` from `src/scan/types`, so swapping engines
- * (route B in `docs/DEMO_PLAN.md` §3, PaddleOCR on the server later) is a change to
- * this file alone.
+ * Everything downstream consumes `OcrFrame` from `src/scan/types`, so swapping engines is
+ * a change to this file alone. Since `A-0` that promise is written down as a type: this
+ * file exports `mlKitProvider`, the first implementation of `scan/provider.ts`'s
+ * `OcrProvider`, and the app's capture paths hold that interface rather than this module.
  */
 import TextRecognition, {
   TextRecognitionScript,
@@ -11,6 +12,7 @@ import TextRecognition, {
   type TextRecognitionResult,
 } from '@react-native-ml-kit/text-recognition';
 
+import { providerDescriptor, type OcrProvider, type OcrRequest } from '../scan/provider';
 import type { Box, OcrFrame, OcrLine } from '../scan/types';
 import { resolveCoordinateFrame } from './projection';
 
@@ -100,3 +102,17 @@ export async function recognise(
   const result = await TextRecognition.recognize(uri, SCRIPT);
   return toOcrFrame(result, imageWidth, imageHeight, Date.now() - startedAt);
 }
+
+/**
+ * ML Kit, as an `OcrProvider`.
+ *
+ * The app's single provider. It is a value rather than a lookup because the demo ships
+ * exactly one engine and reaches its verdict on the device alone (`DEMO_PLAN` §2.1);
+ * a second engine is scored by replaying a committed image on a host, never by running
+ * here. See `scan/provider.ts` for why there is no registry of implementations.
+ */
+export const mlKitProvider: OcrProvider = {
+  id: providerDescriptor('mlkit').id,
+  label: providerDescriptor('mlkit').label,
+  recognise: ({ uri, width, height }: OcrRequest) => recognise(uri, width, height),
+};

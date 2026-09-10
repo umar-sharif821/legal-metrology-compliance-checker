@@ -51,6 +51,7 @@ export default function FieldTrialBar({ capture, extraction, verdict }: Props) {
         captureUri: capture.uri,
         captureMs: capture.captureMs,
         source: capture.source,
+        provider: capture.provider,
         frame: capture.frame,
         extraction,
         verdict,

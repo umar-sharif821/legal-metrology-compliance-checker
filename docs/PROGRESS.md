@@ -3,7 +3,7 @@
 > Single source of truth for project state. Updated by `/handoff`, read by `/pickup`.
 > Keep it terse. This file is read in full every session — every line costs tokens.
 
-**Last updated:** 2026-09-10 · **Sessions completed:** 10 · **Current sprint:** 1 (paused for the demo detour)
+**Last updated:** 2026-09-10 · **Sessions completed:** 11 · **Current sprint:** 1 (paused for the demo detour)
 
 ---
 
@@ -33,108 +33,119 @@
 > All three are cheaper than swapping engines would have been, and `A-4` fixes the largest
 > defect the field trial found, which was never an OCR failure.
 
-**Current demo phase:** `A-4` — spatial anchor–value association. **DONE.**
-**Status:** all nine gates green (**104** TS tests, up from 80; 34 pytest). Nothing red.
+**Current demo phase:** `A-0` — make accuracy measurable. **DONE.**
+**Status:** all nine gates green (**131** TS tests, up from 104; 34 pytest). Nothing red.
 
-**The acceptance test the plan wrote down has passed.** `DEMO_PLAN` §4 A-4 said *"record
-002 yields `84.9 g`, record 001 still yields nothing for that field, and no earlier packet
-regresses."* All three hold. Record 002's `expect.net_quantity` is no longer `null`; the
-`LMPC-6-1-NETQTY-PRESENT` false finding is gone, `LMPC-6-1-NETQTY-UNIT` passes on the
-recovered value, and the verdict stays `ATTENTION` on the three findings that remain.
+**The plan's "Done when" has passed.** `DEMO_PLAN` §4 A-0 required *"the existing two
+packets produce a per-provider table, ML Kit's column is populated from the records already
+committed, and adding a provider needs no test changes."* All three hold: `npm test` prints
+the table on every run, and nothing in `corpus.test.ts` names an engine — it iterates
+`PROVIDERS` and each record's `readings`.
 
-**The value is recorded as `84.9g`, not `84.9 g`.** The plan's acceptance line writes it
-with a space; the OCR line is `84.9g 78 +i)` with none. What goes in the corpus is what the
-label was read to say, not a tidied version of it (P4). Do not "fix" this to match the plan.
+**What A-0 built, in four files.**
 
-**What changed, in one sentence.** Stage B used to pair an anchor at OCR list index `i`
-with lines `i+1 … i+n`; it now pairs by where the boxes actually sit — to the right of the
-anchor on the same row, or below it in the same column — and refuses when the geometry does
-not answer clearly.
+- `mobile/src/scan/provider.ts` (new) — the `OcrProvider` interface (`id`, `label`,
+  `recognise`), plus `PROVIDERS`, the *descriptor* table the Node-side scorer reads, and
+  `REFERENCE_PROVIDER_ID`. **Deliberately no registry of implementations**: the demo ships
+  one engine and a candidate is scored by host replay, not by running on the phone. A map
+  of one entry would look like a plan that does not exist.
+- `mobile/src/camera/ocr.ts` — `mlKitProvider`, the first implementation. `capture.ts` and
+  `useScanLoop.ts` now hold the interface, not the module, so the seam is real rather than
+  decorative. `Capture` carries `provider`, and the recorder writes what actually ran.
+- `mobile/src/scan/score.ts` (new) — the arithmetic, pure and separately tested
+  (`score.test.ts`, on synthetic records so it does not move when the extractor does).
+- `mobile/src/scan/corpus.test.ts` — **assertion and measurement are now separate.** The
+  reference engine is asserted against `expect`; every other engine is measured and
+  reported, never asserted. Otherwise adding an engine would be an act of breaking the
+  suite, which is the friction A-0 exists to remove.
 
-- `mobile/src/scan/associate.ts` (new) is the whole decision: two directional
-  neighbourhoods, a score, a floor and a margin. Pure, no pack knowledge, no field
-  knowledge.
-- `mobile/src/scan/extract.ts` Stage B split into `stageBByGeometry` (the path) and
-  `stageBByReadingOrder` (the degraded path). **The old behaviour is still there**, used
-  only when the engine gave the anchor line no box.
-- Every threshold is in `demo-lmpc-v0.json` → `metadata.spatial_association` (P6). The
-  loader has **no defaults** — a pack missing one of them is refused at startup, and a test
-  asserts that, so none of these numbers can drift back into code.
+**Record schema bumped to `lmscan.field-trial/3`.** `lines` / `frame` / `timings.ocrMs`
+became `readings[]`, each naming its engine — all three were per-*engine* facts wearing
+per-*packet* clothing. Records 001/002 were rewritten in place as one `provider: "mlkit"`
+reading; **verified byte-identical** on lines, boxes, timings, `extracted`, `verdict` and
+`expect`. Same annotation-not-change precedent as `/2`. `recordedProvider` names the reading
+the device took — the one `extracted`/`verdict` describe; every other reading is a host
+replay and its timings are not device measurements (P8).
 
-**Distances are in multiples of the anchor's own text height, never pixels.** This is the
-load-bearing choice, not a detail: it makes the thresholds survive a change of camera
-distance, and there is a test (`reads the same label the same way from a different
-distance`) that fails if anyone re-expresses one in pixels.
+**The headline number is 100% precision and it means almost nothing — the report says so
+itself.** The reference row *cannot* fall below 100% while the suite is green, because the
+same `expect` blocks drive both it and the assertions, and they were written while reading
+ML Kit's own output. It is a **regression indicator, not an accuracy score**, and it is
+silent about declarations no reviewer named. This caveat is printed with the table and
+pinned by a test, because it is exactly the line someone tidying the output would delete.
 
-**Two things the record-002 geometry taught, which a synthetic fixture would never have.**
+**Three more honesty rules are built into the scoring, not bolted on.**
 
-1. **A vertical-overlap test would have rejected the right answer.** `NET QTY:` (y 3013–3136)
-   and `84.9g` (y 2868–3037) share only 24 px, because the packet was photographed by hand
-   and the panel is not square to the sensor. What holds is the drift between the two row
-   *centres* — 0.99 anchor-heights. Row membership is a centre test, not an overlap test.
-2. **The value is 322 px away — 2.6 anchor-heights.** A tight neighbourhood would have
-   missed it. The reach has to be generous and the *margin* has to do the refusing.
+1. *Precision decides* (P3) — with **no weighting constant**, which would be a number the
+   method cannot support (P4). It is the first column and the sort key; recall is reported
+   beside it and does not decide.
+2. *Correctly withholding a value is `withheld`, never a hit.* Silence is not an output —
+   counting it would let an engine that reads nothing score perfectly.
+3. *Not measured is never zero.* An engine with no reading gets a row saying so, and
+   `precision`/`recall` are `null`. Untried and failed are different claims (P9).
 
-**`association` now travels with every value** — direction, gap in anchor-heights, score,
-runner-up score — through `ExtractedField` → `FieldReport` → the verdict screen chip
-(`net_quantity · B_anchored_adjacent · medium · right 2.62×`) and into the field-trial
-record. A stage-B value with **no** association was paired by list order, and says so by
-omission (P9). It is optional on the record type: 001 and 002 predate it, and the schema id
-is deliberately not bumped, because replay reads only `lines` and `expect`.
+**A-0 could NOT answer the first question the plan set it.** `DEMO_PLAN` §4 A-0 asks *"how
+much of the field trial's damage was the capture, not the engine? Re-photograph the same
+packet properly, replay both, and compare"* — record 002's `INCL. OF ALL TAXES` read as
+`NCL. OF 42L TAYES` is the cell to watch. **The corpus cannot make that comparison: both
+records are `viewfinder`, and no packet has been recorded twice from two kinds of image.**
+The harness is ready for it — the report now prints the capture mix and says in as many
+words that a single-source corpus measures that capture kind and not the engine. Answering
+it needs the Lays packet re-photographed with the stock camera and recorded as an `upload`.
+That is `D-3` work and it needs the device. **Do not quote any A-0 number as ML Kit's
+accuracy until that is done.**
 
-**Not verified on the phone, and here is exactly how far it got.** `A-4` is a *no device*
-phase and this is a JS-only change. Metro was confirmed to be serving this checkout
-(`stageBByGeometry` and `maxRightGapHeights` are both in the bundle it returns), and the
-pack compiles — the test suite imports `DEMO_PACK`, which compiles at module load. **The app
-was not launched and the screen was not touched:** `dumpsys window` showed
-`io.supercent.weaponrpg` in the foreground, i.e. the user was using their phone. The one
-thing still unseen on a device is the new chip text on the verdict screen. Check it whenever
-the phone is next free; it is cosmetic and nothing depends on it.
+**A real limit on the whole per-provider idea, found this session:** the JPEGs are
+gitignored, so a candidate engine can only be replayed on a machine that still holds them.
+Deleting the phone's `field-trial` directory forecloses scoring any future engine on those
+packets. Recorded in `mobile/field-trial/README.md` next to the instructions.
 
-**What `A-4` did NOT do, and must not be claimed.** It fixed *association*. It did not
-touch recognition, and the other two declarations `C-0` measured as missing on that capture
-— `commodity_name` and `manufacturer_address` — are still missing, because neither has an
-anchor anywhere in those lines. The `A-4` win is one field on one packet, backed by a rule
-stated in geometry rather than by a tuned constant.
+**Not verified on the phone.** `A-0` is a *no device* phase and the change is JS-only;
+typecheck, lint and 131 tests pass. The device-facing part is one line in the recorder — a
+new record will be written as `/3` with a `readings` array. Worth one glance at the JSON the
+next time a packet is recorded, which is `D-3`'s next action anyway.
 
-**The thresholds are NOT corpus-tuned, and the pack says so in its own note.** They were
-sized from typography (a text row's pitch is a little over its glyph height; a two-column
-panel puts values within a few glyph heights of the label) and then *checked* against a
-corpus of two captures of one packet. That is not tuning and must not be described as it
-(P8). They become real numbers when `D-3` has variety. `DEMO_PLAN` §4 A-4 already required
-this — *"chosen against the field-trial corpus, never against a single packet"* — and it is
-the one line of that phase not yet satisfiable.
+**Next phase to actually start:** **`D-3`** — resume the field trial at 2/10. It is the only
+thing that makes `A-0`'s table say anything, it is what `A-4`'s thresholds are waiting on,
+and it must be finished before `D-5` regardless. After `D-3`: `D-4`, then `D-5`.
 
-**Next phase to actually start:** **`A-0`** — make accuracy measurable. *(no device)*
+**`A-4` (done last session), in the lines that still matter.** Stage B pairs an anchor with
+its value by geometry — right on the same row, or below in the same column — and refuses
+when the geometry does not answer clearly (`mobile/src/scan/associate.ts`). Distances are in
+multiples of the anchor's own text height, **never pixels**, which is what makes them
+survive a change of camera distance; a test fails if anyone re-expresses one in pixels.
+Every threshold is pack data (`demo-lmpc-v0.json` → `metadata.spatial_association`) and the
+loader has no defaults. Two geometry lessons from record 002 that a synthetic fixture would
+never have taught: **row membership is a centre-drift test, not an overlap test** (`NET QTY:`
+and `84.9g` share only 24 px because the packet was photographed by hand), and **the reach
+must be generous — the value was 2.6 anchor-heights away — with the *margin* doing the
+refusing.** The thresholds are sized from typography and merely *checked* against two
+captures of one packet: **that is not corpus tuning and must not be described as it** (P8).
+They become real numbers when `D-3` has variety.
 
-**`D-3` is still paused at 2/10 by user decision** — see the reasoning below, which stands
-unchanged. It must be resumed before `D-5`. **If `D-3` is still at 2/10 when `D-5` comes
-up, stop and finish `D-3` first.** With `A-4` landed, the argument for collecting now is
-stronger than it was: a new packet will exercise the association rule rather than
-re-demonstrating a defect already understood.
-
-**Judging a packet is not recording it.** Packet 3 was uploaded and judged two sessions ago
-but never recorded, so the corpus is still at 2. The remaining `D-3` work is 8 more packets
-*and* a hand-written `expect` block for each — the `expect` blocks are the slow half, not
-the photography. **Variety, not count:** both current records are the same product, so the
-pack is tuned to one label. Ten is a round number from the plan, not a derived one — the
-real stopping rule is *when a new packet stops breaking something new*.
-Photograph the remaining packets with the stock camera app, then feed each in with *Use a
-photo from the gallery* and hit **Record**. `mobile/field-trial/README.md` has the flow and
-the `source` table.
+**`D-3` is paused at 2/10 by user decision, and is now the next thing to do.** It must be
+resumed before `D-5`. **Judging a packet is not recording it** — packet 3 was uploaded and
+judged three sessions ago but never recorded, so the corpus is still at 2. The remaining
+work is 8 more packets *and* a hand-written `expect` block for each; **the `expect` blocks
+are the slow half, not the photography.** **Variety, not count:** both current records are
+the same product, so the pack is tuned to one label. Ten is a round number from the plan —
+the real stopping rule is *when a new packet stops breaking something new*. Photograph the
+remaining packets with the stock camera app, then feed each in with *Use a photo from the
+gallery* and hit **Record**. `mobile/field-trial/README.md` has the flow, the `source` table
+and (new) the `readings` shape.
 
 **`C-0` is done and fully verified on the Nord 4** — full-quality still, image upload,
-viewfinder demoted to framing feedback, and the nav-bar inset fixed on both screens
-(`NAV_BAR_INSET` in `mobile/src/ui/layout.ts`, guarded by `mobile/src/ui/layout.test.ts`).
-What it measured, and the reason `A-4` came next: same packet, seconds apart, a
-`skipProcessing` viewfinder pass gave **32 lines and on a second pass 0**, a full-quality
-capture gave **111** — 3.5× the text for about half a second more, ~1.6 s shutter to
-verdict. ML Kit was never the binding constraint; the frame was. But that 111-line capture
-still located 2 of 6 declarations and **both were wrong**, while `150 g`, `₹65.00` and
-`15JUL.2026` sat legibly in the frame, unfound. Recognition was not the bottleneck;
-association was. That is what `A-4` has now addressed.
+viewfinder demoted to framing feedback, nav-bar inset fixed on both screens (`NAV_BAR_INSET`
+in `mobile/src/ui/layout.ts`, guarded by `layout.test.ts`). What it measured: same packet,
+seconds apart, a `skipProcessing` viewfinder pass gave **32 lines and on a second pass 0**,
+a full-quality capture gave **111** — 3.5× the text for about half a second more, ~1.6 s
+shutter to verdict. ML Kit was never the binding constraint; the frame was. But that
+111-line capture still located 2 of 6 declarations and **both were wrong**, while `150 g`,
+`₹65.00` and `15JUL.2026` sat legibly in the frame, unfound. That was association, and `A-4`
+addressed it.
 
 **Driving the scan screen over ADB — read this before automating the phone again.**
+
 - `uiautomator dump` **fails on the scan screen** with `ERROR: could not get idle state` —
   the live loop never lets the UI go idle. It works on the verdict screen and on the photo
   picker (both idle). On the scan screen, screenshot and compute coordinates instead.
@@ -144,8 +155,7 @@ association was. That is what `A-4` has now addressed.
 - **Send one tap, then look.** Batching `tap; sleep; tap` in a single command repeatedly
   produced the wrong thing — a tap meant for *Scan again* on the verdict screen also
   reached the newly mounted scan screen's controls, and later taps dismissed the picker
-  before a screenshot could see it. This is the same re-render hazard already recorded,
-  but the failure mode is *misrouting*, not only dropping.
+  before a screenshot could see it. The failure mode is *misrouting*, not only dropping.
 - **The app restores a verdict on relaunch.** A fresh launch landing on a verdict screen is
   normal and is not evidence that a capture just ran.
 
@@ -153,10 +163,10 @@ association was. That is what `A-4` has now addressed.
 shot with `NET QUANTITY 150 g`, `DATE OF MANUFACTURE 15JUL.2026`, `BATCH NO. 28085`,
 `USE BY 14JAN.2027`, `₹65.00`, `(Inclusive of all taxes)`. It was uploaded and judged but
 **deliberately not recorded** — recording reds the suite until a person writes its `expect`
-block, which is the user's call. It is packet 3 of 10 and it is ready to go. **It is now
-also the best available first test of `A-4` on a packet the rule was not written against.**
+block, which is the user's call. It is packet 3 of 10, it is ready to go, and it is the best
+available first test of `A-4` on a packet the rule was not written against.
 
-**All nine gates are green** (104 TS tests, 34 pytest). The next packet recorded will red
+**All nine gates are green** (131 TS tests, 34 pytest). The next packet recorded will red
 the suite until somebody writes its `expect` block — the mechanism working, not a breakage.
 
 ### The corpus and how it works
@@ -277,10 +287,10 @@ Demo phases, in priority order. After each one there is still a demo you could g
 - [x] `D-0` Foundations — scaffold, Gradle build green, rule pack, evaluator, unit tests · *no device*
 - [x] `D-1` Shell on the phone — one still capture reaches ML Kit and prints text
 - [x] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
-- [>] `D-3` Field trial — 2/10 recorded; unblocked and cheap now, **paused by user decision** — must be resumed before `D-5`
+- [>] `D-3` Field trial — 2/10 recorded; **paused by user decision, and now the next phase** — must be resumed before `D-5` ← **resume here**
 - [x] `C-0` Capture quality — full-quality still, image upload, preview → viewfinder · **fully verified on device**
 - [x] `A-4` Spatial anchor-value association (`T-2.3` pulled forward) · *no device* — acceptance test passed; thresholds not yet corpus-tuned
-- [ ] `A-0` Make accuracy measurable — `OCRProvider`, per-provider corpus · *no device* ← **resume here**
+- [x] `A-0` Make accuracy measurable — `OCRProvider`, per-provider corpus · *no device* — table prints; **cannot yet separate capture from engine (needs a second-source record, see Parked)**
 - [ ] `D-4` Honest degradation **+ frame admission** — refuse a bad frame before OCR runs (`T-2.7` half pulled forward)
 - [~] `A-1`/`A-2`/`A-3` Server OCR — **dropped**, see `DEMO_PLAN` §2.1
 - [ ] `D-5` Polish and rehearsal — icon, standalone APK, `docs/DEMO_SCRIPT.md`, two run-throughs
@@ -326,6 +336,11 @@ Setup on a fresh clone: `npm install` and `python -m pip install -r requirements
   biscuits, noodles, a medicine box all qualify. **Variety is the point**, since the wording
   varies (`Net Wt.`/`Net Qty`/`Quantity`, g/ml/kg/L, MRP phrasings, one- vs two-column
   panels). Ten captures of one packet would tune the pack to that packet.
+- **Re-photograph the Lays packet (records 001/002) with the stock camera and record it as
+  an `upload`.** One packet, one photo, one `expect` block. It is the only thing standing
+  between `A-0`'s table and the question `A-0` was set: *was the field trial's damage the
+  capture or the engine?* Worth doing first among the eight, because it also answers whether
+  a cloud engine ever needs to be considered again.
 - Still wanted: a packet with a declaration *genuinely* present but defective. The evidence
   highlight is now proven (see **Now**), but on a *false* flag; a real defect would be better.
 - A Legal Metrology officer / law student contact for the rule-pack review (plan §4,
@@ -358,6 +373,11 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-10` Every capture declares a `source` (`viewfinder` / `still` / `upload`) and it is written into the field-trial record. The three are different measurements of a label and a corpus that mixes them silently cannot be compared (P8).
 - `2026-09-10` `timings.captureMs` is `null` for an upload, never `0` — there is no shutter this app timed (P4). Record schema bumped to `lmscan.field-trial/2`; records 001/002 were annotated `"source": "viewfinder"` in place, no line/box/timing touched, so the corpus carries exactly one schema.
 - `2026-09-10` Anything that wants the camera goes through `useScanLoop`'s `exclusive()`, which suspends the loop and awaits the pass in flight. "One capture in flight at a time" now holds for the whole app, not just the loop.
+- `2026-09-10` **`A-0`: a field-trial record holds `readings[]`, one per OCR engine, not a single `lines` array.** `ocrMs` and `frame` moved inside the reading because both are per-engine facts. Schema `lmscan.field-trial/3`; 001/002 rewritten in place as one `mlkit` reading, verified byte-identical. `recordedProvider` names the reading the device took.
+- `2026-09-10` **The reference OCR provider is asserted; every other provider is measured, never asserted.** A candidate engine disagreeing with a reviewer's `expect` block is a number for the table, not a red build — otherwise adding an engine means breaking the suite.
+- `2026-09-10` **No weighting constant for P3.** "A false flag costs more than a miss" is expressed as *precision is the headline and the sort key*, with recall reported beside it and not deciding. A tuned cost ratio would be a number the method cannot support (P4).
+- `2026-09-10` **Correctly withholding a value is `withheld`, never scored as a hit**, and **a provider with no reading is `not measured`, never zero** (`precision`/`recall` are `null`). Untried and failed are different claims.
+- `2026-09-10` **No registry of OCR *implementations*.** `PROVIDERS` is descriptors only (id, label, note); `mlKitProvider` is a plain value in `camera/ocr.ts`. The demo ships one engine and scores candidates by host replay — a one-entry map would imply a plan that does not exist.
 - `2026-09-10` `expo-image-picker` is installed but **deliberately not listed in `app.json` plugins**. Its Android half only adds `RECORD_AUDIO` and crop-tool colours; `launchImageLibraryAsync` uses the Android photo picker and needs no runtime permission. Registering it would make the app request a microphone it never uses.
 - `2026-09-10` Beat 3 is no longer "verdict in under a second". Capture→verdict is ~1.6 s measured, and the demo says so. What survives is the claim that mattered: the image on screen is exactly the image the verdict was read from.
 - `2026-09-10` Rule-pack schema is Draft 2020-12, `schema_version: "2.0"`, in `rulepack/schema/rulepack.schema.json`. Top-level keys: `metadata`, `fields`, `applicability_gates`, `declarations`, `geometry_rules`, `tables`, `lexicons`.
@@ -456,6 +476,27 @@ Append-only. One line each. Never re-litigate a line that is already here.
 
 Noticed but deliberately out of scope for now. Do not action without asking.
 
+- **The A-0 table cannot yet separate the capture from the engine.** Both records are
+  `viewfinder`, so the plan's first question for A-0 — *was the field trial's damage the
+  capture or the engine?* — is unanswerable from the corpus. It needs the **Lays** packet
+  (records 001/002) re-photographed with the stock camera and recorded as an `upload`, then
+  the two rows compared; watch record 002's `MIRP RS. 20/- (NCL. OF 42L TAYES)`. One packet,
+  one photo, one `expect` block — do it as part of `D-3`.
+
+- **The field-trial JPEGs are gitignored, and that forecloses future scoring.** A candidate
+  OCR engine can only be replayed on a machine that still holds the images. Do not clear the
+  phone's `field-trial` directory or the local `mobile/field-trial/*.jpg` without deciding
+  that no other engine will ever be scored on those packets. Not proposing to commit them —
+  ten full-resolution captures in a repo with no remote is why they are ignored — but the
+  trade is now explicit.
+
+- **`extracted` and `verdict` in a record still describe only the device's reading.** A host
+  replay appends `readings` but writes no per-reading extraction, so the descriptive half of
+  a record is single-engine while the measured half is not. `corpus.test.ts` recomputes both
+  for every reading, so nothing is lost — but a person reading the raw JSON of a two-engine
+  record will see one `extracted` block and may take it for both. Revisit when a second
+  engine actually has readings.
+
 - **No screen chrome is exercised on a device by any test.** `layout.test.ts` now guards the
   one constant that bit us, but it reads source text — it cannot know that a control is
   reachable by a finger. The upload button shipped, built, bundled and autolinked, and was
@@ -485,13 +526,6 @@ Noticed but deliberately out of scope for now. Do not action without asking.
   no task on the board creates a schema for it. `T-1.9` compares verdicts byte-identically,
   which will catch divergence but not a shape both evaluators get wrong together. Decide
   before `T-1.7` whether the envelope gets its own schema.
-- **Anchor–value spatial association — still `T-2.3`, now partly guarded.** Stage B no
-  longer pairs an anchor with a line printed *above* it (see **Now** item 2), which kills
-  the measured false pairing without introducing a threshold. What remains is the real
-  task: distance, column overlap and reading order, so record 002's `84.9 g` — 19 list
-  indices from its anchor but right beside it on the label — is actually reached. Its
-  `expect` block still says `null` and should be changed to `"84.9 g"` when `T-2.3` lands.
-  Do not tune distance or column numbers against this one packet.
 - `rulepack/CHANGELOG.md` is in the plan §18 layout ("every clause change, dated, with
   reviewer") but no task creates it. Fold it into `T-1.3`, which writes the first pack.
 - **The `Record` control ships in the app.** `D-5` must decide whether the pitch shows a
@@ -560,7 +594,7 @@ Status: `[ ]` todo · `[>]` in progress · `[x]` done · `[!]` blocked · `[~]` 
 
 - [ ] `T-3.1` Panel capture (full-res, replaces v1 per-field crops) · *plan §6.2 S4*
 - [ ] `T-3.2` Upload outbox + resumable idempotent sync · *plan §13.2, §13.3*
-- [>] `T-3.3` OCR adapters behind `OCRProvider` — Cloud Vision + PaddleOCR · *plan §5.1, §17* — **interface half pulled forward as demo phase `A-0`; the adapters themselves are rejected for the demo, see `DEMO_PLAN` §2.1**
+- [>] `T-3.3` OCR adapters behind `OCRProvider` — Cloud Vision + PaddleOCR · *plan §5.1, §17* — **the interface landed as demo phase `A-0`** (`mobile/src/scan/provider.ts`, demo-scale, `mobile/` only); the adapters themselves are rejected for the demo, see `DEMO_PLAN` §2.1. The Sprint-3 task is the real one (both runtimes, server adapters) and stays open
 - [ ] `T-3.4` On-device provisional verdict · *plan §6.1*
 - [ ] `T-3.5` Server refined verdict + merge-in-place · *plan §6.1*
 - [ ] `T-3.6` Verdict screen — findings, citations, evidence crops · *plan §11.2*

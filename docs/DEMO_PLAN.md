@@ -251,10 +251,10 @@ Mirrored in `docs/PROGRESS.md` under **Now**, which is the source of truth. Upda
 | **D-0** | Foundations — app scaffold, native build, rule pack, evaluator, tests | no | `[x]` done |
 | **D-1** | Shell on the phone — one still capture reaches ML Kit and prints text | **yes** | `[x]` done |
 | **D-2** | The core loop — live OCR, freeze, verdict screen with citations | **yes** | `[x]` done *(freeze superseded by `C-0`'s Capture)* |
-| **D-3** | Field trial — tune against real packets until scans behave | **yes** | `[>]` **unblocked by `C-0`** — 2/10 packets |
+| **D-3** | Field trial — tune against real packets until scans behave | **yes** | `[>]` **next phase** — 2/10 packets, paused by user decision |
 | **C-0** | **Capture quality** — full-quality still, image upload, preview demoted to viewfinder | **yes** | `[x]` done |
-| **A-0** | OCR provider interface + per-provider corpus, so accuracy is a number | no | `[ ]` not blocked |
-| **A-4** | Spatial anchor-value association (`T-2.3` pulled forward) | no | `[ ]` not blocked |
+| **A-0** | OCR provider interface + per-provider corpus, so accuracy is a number | no | `[x]` done — table prints; the *capture vs engine* question it set itself needs a second-source record from `D-3` |
+| **A-4** | Spatial anchor-value association (`T-2.3` pulled forward) | no | `[x]` done — acceptance test passed; thresholds not yet corpus-tuned |
 | **D-4** | Honest degradation **+ frame admission** — refuse bad frames before OCR runs | **yes** | `[ ]` |
 | **D-5** | Polish and rehearsal — icon, APK, demo script, two run-throughs | **yes** | `[ ]` |
 | ~~A-1 / A-2 / A-3~~ | ~~Server OCR~~ — **DROPPED**, see §2.1. Cloud-hosted OCR stays a later escalation if `A-0` ever shows ML Kit is not enough | — | `[~]` |

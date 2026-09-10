@@ -27,7 +27,7 @@ import { File } from 'expo-file-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
 import type { Capture } from './capture';
-import { recognise } from './ocr';
+import { mlKitProvider } from './ocr';
 import { withTimeout } from './timeout';
 
 /**
@@ -234,7 +234,7 @@ export function useScanLoop(
           let frame;
           try {
             frame = await withTimeout(
-              recognise(uri, picture.width, picture.height),
+              mlKitProvider.recognise({ uri, width: picture.width, height: picture.height }),
               PASS_TIMEOUT_MS,
               'text recognition',
             );
@@ -261,6 +261,7 @@ export function useScanLoop(
             captureMs,
             seq: seq.current,
             source: 'viewfinder',
+            provider: mlKitProvider.id,
           });
           setPasses((n) => n + 1);
         } catch (caught) {

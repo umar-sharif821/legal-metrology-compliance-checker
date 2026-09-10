@@ -16,10 +16,11 @@
  */
 import { DEMO_PACK } from '../rulepack/pack';
 import { extract } from '../scan/extract';
+import type { OcrProviderId } from '../scan/provider';
 import type { CaptureSource, ExtractionResult, OcrFrame } from '../scan/types';
 import { evaluate } from '../verdict/evaluate';
 import type { Verdict } from '../verdict/types';
-import { recognise } from './ocr';
+import { mlKitProvider } from './ocr';
 
 export interface Capture {
   /** The image on disk, so the frame can be displayed and drawn over. */
@@ -36,6 +37,14 @@ export interface Capture {
   /** Increases with every capture; lets the UI distinguish a fresh image from a repeat. */
   readonly seq: number;
   readonly source: CaptureSource;
+  /**
+   * Which engine read this frame.
+   *
+   * Carried from the provider that actually ran, so the field-trial record can attribute
+   * its lines without the recorder guessing (`A-0`). One engine ships today; the point of
+   * carrying it is that a corpus is only comparable when every line set is attributed.
+   */
+  readonly provider: OcrProviderId;
 }
 
 /**
@@ -78,7 +87,12 @@ export interface JudgeInput {
  * `extract` and `evaluate` are pure and sub-millisecond; the whole cost here is OCR.
  */
 export async function judge(input: JudgeInput): Promise<Judgement> {
-  const frame = await recognise(input.uri, input.width, input.height);
+  const provider = mlKitProvider;
+  const frame = await provider.recognise({
+    uri: input.uri,
+    width: input.width,
+    height: input.height,
+  });
   const extraction = extract(DEMO_PACK, frame.lines);
   const verdict = evaluate(DEMO_PACK, frame, extraction);
   return {
@@ -88,6 +102,7 @@ export async function judge(input: JudgeInput): Promise<Judgement> {
       captureMs: input.captureMs,
       seq: input.seq,
       source: input.source,
+      provider: provider.id,
     },
     extraction,
     verdict,
