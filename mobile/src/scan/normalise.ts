@@ -116,3 +116,57 @@ export function findAnchorEnd(line: string, anchors: readonly string[]): number 
 export function stripLeadingSeparators(s: string): string {
   return s.replace(/^[\s:;=.\-–—|)\]}>*]+/, '').trim();
 }
+
+/** Punctuation that marks the end of a printed label: `Product Name:`, `Mfd. by -`. */
+const LABEL_SEPARATOR = /[:;=.\-|)\]}>*]/;
+
+/**
+ * Find an anchor term, but only where it is printed as a **label** rather than used as
+ * an ordinary word in a sentence.
+ *
+ * `findAnchorEnd` believes an anchor wherever it appears with clean word boundaries.
+ * That is right for a field whose value has a shape to verify it — `net qty` can be
+ * trusted because whatever follows must still look like a quantity. It is wrong for a
+ * free-text field that takes the anchor's remainder verbatim, because then *any*
+ * sentence containing the anchor word yields a confident value.
+ *
+ * Measured on the device 2026-09-10, Bhujialalji Navratna Mix, both at **high**
+ * confidence via stage A, from the `commodity_name` anchor `product`:
+ *
+ *  - `product of india` → commodity name `of india`
+ *  - `this product is made in a facility that …` → `is made in a facility that`
+ *
+ * Neither is an OCR error; both lines were read correctly. The fault is treating an
+ * English word in running text as a declaration label. So a labelled anchor must
+ *
+ *  1. begin the line — a declaration label is not buried mid-sentence; and
+ *  2. be followed by a separator, or by nothing at all.
+ *
+ * Condition 2 admits `manufactured by` alone on its line, where the value is printed
+ * below and stage B goes looking for it. It rejects `product of india`, where the
+ * anchor runs straight into ordinary words.
+ *
+ * **The cost is real and is accepted deliberately (P3).** A label printed
+ * `Product Name Navratna Mix`, with no punctuation after the anchor, is no longer
+ * recovered and the declaration is reported not found. A miss produces an advisory
+ * telling the officer to rescan the panel; a false value tells them the commodity is
+ * called "of india". The first is cheaper, so the trade is taken — and which fields take
+ * it is pack data (`anchor_must_be_labelled`), not a decision buried here.
+ */
+export function findLabelledAnchorEnd(line: string, anchors: readonly string[]): number {
+  for (const anchor of anchors) {
+    if (anchor.length === 0) continue;
+    if (!line.startsWith(anchor)) continue;
+
+    const end = anchor.length;
+    // Same right-hand boundary rule as findAnchorEnd: required only when the anchor
+    // itself ends in a letter or digit, so `mfd.` may butt up against what follows.
+    if (isAlphanumeric(anchor[end - 1]) && isAlphanumeric(line[end])) continue;
+
+    let at = end;
+    while (line[at] === ' ') at++;
+    if (at >= line.length) return end; // anchor alone on its line — stage B's job
+    if (LABEL_SEPARATOR.test(line[at] as string)) return end;
+  }
+  return -1;
+}

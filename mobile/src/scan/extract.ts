@@ -21,7 +21,12 @@
 
 import type { CompiledField, CompiledPack, SpatialAssociation } from '../rulepack/pack';
 import { associate, type Candidate } from './associate';
-import { findAnchorEnd, normaliseLines, stripLeadingSeparators } from './normalise';
+import {
+  findAnchorEnd,
+  findLabelledAnchorEnd,
+  normaliseLines,
+  stripLeadingSeparators,
+} from './normalise';
 import type {
   Association,
   Box,
@@ -243,9 +248,15 @@ function extractField(
   // the strict one.
   const anchoredShape = field.anchoredShape ?? field.shape;
 
+  // Which anchors this field is willing to believe. A free-text field may require the
+  // anchor to be printed as a label, because it takes the remainder verbatim and a
+  // sentence containing the anchor word would otherwise become a confident value (P3).
+  // The choice is the pack's, per field; this module only obeys it.
+  const findEnd = field.anchorMustBeLabelled ? findLabelledAnchorEnd : findAnchorEnd;
+
   // ---- Stage A: anchor and value on the same line -------------------------
   for (let i = 0; i < normalised.length; i++) {
-    const anchorEnd = findAnchorEnd(normalised[i], field.anchors);
+    const anchorEnd = findEnd(normalised[i], field.anchors);
     if (anchorEnd === -1) continue;
 
     const rest = stripLeadingSeparators(normalised[i].slice(anchorEnd));

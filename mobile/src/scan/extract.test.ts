@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
-import { DEMO_PACK } from '../rulepack/pack';
+import rawPack from '../rulepack/demo-lmpc-v0.json';
+import { compilePack, DEMO_PACK } from '../rulepack/pack';
 import { extract } from './extract';
 import * as fx from './fixtures';
 import { normaliseLine } from './normalise';
@@ -292,5 +293,69 @@ describe('extraction cascade', () => {
     const a = extract(DEMO_PACK, lines);
     const b = extract(DEMO_PACK, lines);
     expect(a.fields).toEqual(b.fields);
+  });
+});
+
+describe('an anchor printed as a label, versus the same word in a sentence', () => {
+  // Every line here was read correctly by ML Kit on the Nord 4, 2026-09-10, from the
+  // Bhujialalji Navratna Mix packet. The bug was never the OCR; it was believing the
+  // word `product` wherever it appeared. Both of these reached the screen as
+  // `commodity_name` at HIGH confidence before `anchor_must_be_labelled`.
+  const PRODUCT_OF_INDIA = 'PRODUCT OF INDIA';
+  const ALLERGEN_SENTENCE = 'This product is made in a facility that also processes Peanut';
+
+  it('does not name the commodity from "PRODUCT OF INDIA"', () => {
+    expect(run([PRODUCT_OF_INDIA]).get('commodity_name')).toBeUndefined();
+  });
+
+  it('does not name the commodity from the allergen sentence', () => {
+    expect(run([ALLERGEN_SENTENCE]).get('commodity_name')).toBeUndefined();
+  });
+
+  it('still reads a genuine label, with or without the word "name"', () => {
+    expect(run(['Product Name: Navratna Mix']).get('commodity_name')?.value).toBe('navratna mix');
+    expect(run(['PRODUCT: Navratna Mix']).get('commodity_name')?.value).toBe('navratna mix');
+    // A separator other than a colon is still a label.
+    expect(run(['Commodity - Navratna Mix']).get('commodity_name')?.value).toBe('navratna mix');
+  });
+
+  it('prefers silence over a guess when the label carries no punctuation', () => {
+    // The accepted cost, pinned so nobody "fixes" it by loosening the rule without
+    // reading why it is here. Not found raises a rescan advisory; `of india` does not.
+    expect(run(['Product Name Navratna Mix']).get('commodity_name')).toBeUndefined();
+  });
+
+  it('leaves a field that did not ask for the rule alone', () => {
+    // `manufacturer_address` sets the flag false, so its anchors are still believed
+    // mid-line. That is the pack's call to make and this test only records it.
+    expect(DEMO_PACK.fieldById('manufacturer_address')?.anchorMustBeLabelled).toBe(false);
+    expect(run(['Film manufactured by: GLS Films Industries']).get('manufacturer_address')).toBeDefined();
+  });
+
+  it('takes the rule from the pack, so it is a data decision', () => {
+    // P6: flip the flag in the data and the same line changes answer, with no code edit.
+    const relaxed = structuredClone(rawPack) as {
+      fields: { id: string; anchor_must_be_labelled?: boolean }[];
+    };
+    const field = relaxed.fields.find((f) => f.id === 'commodity_name');
+    if (field === undefined) throw new Error('commodity_name missing from the pack');
+    field.anchor_must_be_labelled = false;
+
+    const loose = extract(compilePack(relaxed), fx.linesFrom([PRODUCT_OF_INDIA]));
+    const found = loose.fields.find((f) => f.fieldId === 'commodity_name');
+    expect(found?.value).toBe('of india');
+  });
+
+  it('refuses a pack that leaves the choice unstated for a free-text field', () => {
+    // No default in code: a field that takes the anchor remainder verbatim must say
+    // out loud whether a mid-sentence anchor counts.
+    const silent = structuredClone(rawPack) as {
+      fields: { id: string; anchor_must_be_labelled?: boolean }[];
+    };
+    const field = silent.fields.find((f) => f.id === 'commodity_name');
+    if (field === undefined) throw new Error('commodity_name missing from the pack');
+    delete field.anchor_must_be_labelled;
+
+    expect(() => compilePack(silent)).toThrow(/anchor_must_be_labelled/);
   });
 });

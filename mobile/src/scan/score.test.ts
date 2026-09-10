@@ -164,14 +164,17 @@ describe('A-0 scorer — replay over records', () => {
   it('scores a value the reviewer said should not be there as wrong, not as missing', () => {
     // The `commodity_name: "may differ."` failure in docs/PROGRESS.md, as a number: a
     // confident wrong answer must land in the column precision divides by (P3).
+    //
+    // The vehicle changed on 2026-09-10 and the reason is worth keeping. This test used
+    // to feed `actual product may differ.`, relying on the bare anchor `product` being
+    // believed mid-sentence. `anchor_must_be_labelled` removed that whole class of false
+    // value, so the line now extracts nothing and there was no wrong answer left to
+    // score. The subject here is the SCORER, not the extractor, so the line was replaced
+    // with a properly labelled anchor whose value the reviewer says should not be there.
     const corpus = [
       {
         file: '001.json',
-        record: record(
-          REFERENCE_PROVIDER_ID,
-          ['NET QTY: 84.9g', 'actual product may differ.'],
-          want,
-        ),
+        record: record(REFERENCE_PROVIDER_ID, ['NET QTY: 84.9g', 'Product Name: Rice Meal'], want),
       },
     ];
     const [score] = scoreCorpus(DEMO_PACK, corpus, [REFERENCE_PROVIDER_ID]);

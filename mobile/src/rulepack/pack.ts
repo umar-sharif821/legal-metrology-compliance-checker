@@ -68,6 +68,16 @@ export interface CompiledField {
    * following lines when the anchor's own line ends bare (`Marketed by` / newline).
    */
   readonly anchorRemainderIsValue: boolean;
+  /**
+   * May this field's anchors be believed only where they are printed as a label?
+   *
+   * Required in the pack for every field with `anchor_remainder_is_value`, because for
+   * those fields a mis-believed anchor produces a confident wrong value rather than a
+   * failed shape match. There is no default here on purpose: the trade it makes (a miss
+   * instead of a false value, P3) is a judgement about a particular declaration, so the
+   * pack must state it per field rather than inherit it from the interpreter (P6).
+   */
+  readonly anchorMustBeLabelled: boolean;
 }
 
 export type CompiledCheck =
@@ -442,6 +452,19 @@ function compile(raw: unknown): CompiledPack {
       if (!found) throw new PackError(`fields[${i}].${key}`, `unknown shape '${shapeId}'`);
       return found;
     };
+    const anchorRemainderIsValue = o.anchor_remainder_is_value === true;
+    // A free-text field takes the anchor's remainder verbatim, so a wrongly believed
+    // anchor becomes a confident false value. The pack must say, in as many words,
+    // whether such an anchor has to look like a printed label.
+    const rawMustBeLabelled = o.anchor_must_be_labelled;
+    if (anchorRemainderIsValue && typeof rawMustBeLabelled !== 'boolean') {
+      throw new PackError(
+        `fields[${i}].anchor_must_be_labelled`,
+        'a field with anchor_remainder_is_value must declare anchor_must_be_labelled explicitly — it decides whether an anchor found mid-sentence yields a value',
+      );
+    }
+    // Meaningless for a shaped field: its shape already refuses a wrong remainder.
+    const anchorMustBeLabelled = typeof rawMustBeLabelled === 'boolean' ? rawMustBeLabelled : false;
     const shape = resolveShape('value_shape');
     const anchoredShape = resolveShape('anchored_value_shape');
     if (anchoredShape && !shape) {
@@ -461,7 +484,8 @@ function compile(raw: unknown): CompiledPack {
       unanchoredRecovery: o.unanchored_recovery === true,
       valueMaySpanLines: num(o.value_may_span_lines, `fields[${i}].value_may_span_lines`),
       valuePresentation: parsePresentation(o.value_presentation, `fields[${i}].value_presentation`),
-      anchorRemainderIsValue: o.anchor_remainder_is_value === true,
+      anchorRemainderIsValue,
+      anchorMustBeLabelled,
     };
   });
 
