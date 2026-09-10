@@ -31,8 +31,15 @@
 import type { Box, OcrFrame, OcrLine } from '@engine/scan/types';
 import { canvasBase64, loadImageElement, renderTo, type Candidate } from './imaging';
 
-/** Long edge sent to the model. Beyond this costs tokens without helping the read. */
-const MAX_EDGE = 1600;
+/**
+ * Long edge sent to the model, and the JPEG quality it is encoded at.
+ *
+ * A phone photograph is several megabytes; sending it whole costs upload time on a
+ * venue's connection without helping a model that is reading text, not inspecting grain.
+ * 1400px keeps small print legible while cutting the payload to a few hundred kilobytes.
+ */
+const MAX_EDGE = 1400;
+const JPEG_QUALITY = 0.85;
 
 const API_ROOT = 'https://generativelanguage.googleapis.com/v1beta';
 
@@ -56,6 +63,26 @@ const PREFERRED = [
 
 let resolvedModel: string | null = null;
 
+/** Model families that cannot read an image, or are far too slow to sit in a scan. */
+const UNSUITABLE = /embedding|aqa|imagen|veo|tts|audio|learnlm|gemma|thinking|-pro/i;
+
+/** At most this many models are probed before giving up. */
+const MAX_PROBES = 4;
+
+/** Abort any single request that takes longer than this. */
+const REQUEST_TIMEOUT_MS = 30_000;
+const PROBE_TIMEOUT_MS = 8_000;
+
+async function withTimeout(url: string, init: RequestInit, ms: number): Promise<Response> {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), ms);
+  try {
+    return await fetch(url, { ...init, signal: ctrl.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 /** Rank the account's usable models: preferred names first, then any other flash model. */
 async function candidateModels(key: string): Promise<string[]> {
   const res = await fetch(`${API_ROOT}/models?key=${encodeURIComponent(key)}`);
@@ -73,15 +100,15 @@ async function candidateModels(key: string): Promise<string[]> {
   const usable = (listed.models ?? [])
     .filter((m) => (m.supportedGenerationMethods ?? []).includes('generateContent'))
     .map((m) => (m.name ?? '').replace(/^models\//, ''))
-    .filter(Boolean);
+    .filter((m) => m && !UNSUITABLE.test(m));
 
   const preferred = PREFERRED.filter((p) => usable.includes(p));
-  const otherFlash = usable.filter(
-    (m) => m.includes('flash') && !m.includes('thinking') && !preferred.includes(m),
-  );
+  const otherFlash = usable.filter((m) => m.includes('flash') && !preferred.includes(m));
   const rest = usable.filter((m) => !preferred.includes(m) && !otherFlash.includes(m));
 
-  const ranked = [...preferred, ...otherFlash, ...rest];
+  // Capped. An account can list dozens of models, and walking all of them turns one
+  // failed scan into a minute of waiting.
+  const ranked = [...preferred, ...otherFlash, ...rest].slice(0, MAX_PROBES);
   if (ranked.length === 0) throw new Error('That key has no models available for image reading.');
   return ranked;
 }
@@ -89,6 +116,64 @@ async function candidateModels(key: string): Promise<string[]> {
 /** True when a failure means "try the next model" rather than "stop and report". */
 function isModelUnavailable(status: number, detail: string): boolean {
   return status === 404 || /not (?:found|available)|no longer available|unsupported/i.test(detail);
+}
+
+/**
+ * Find a model this key can actually call, using a text-only request.
+ *
+ * The account's model list is not sufficient on its own — `gemini-2.5-flash` was listed
+ * as available and then refused a real call as "no longer available to new users". Only
+ * an attempt settles it.
+ *
+ * The attempt is deliberately tiny. The first version of this retried with the full
+ * photograph attached, so probing four models meant uploading a multi-megapixel image
+ * four times and a failed scan took a minute. Probing costs a few words; the picture is
+ * sent once, to a model already known to answer.
+ */
+async function resolveModel(key: string): Promise<string> {
+  if (resolvedModel) return resolvedModel;
+
+  const models = await candidateModels(key);
+  let lastDetail = '';
+
+  for (const model of models) {
+    try {
+      const probe = await withTimeout(
+        `${API_ROOT}/models/${model}:generateContent?key=${encodeURIComponent(key)}`,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            contents: [{ parts: [{ text: 'ok' }] }],
+            generationConfig: { temperature: 0, maxOutputTokens: 1 },
+          }),
+        },
+        PROBE_TIMEOUT_MS,
+      );
+      if (probe.ok) {
+        resolvedModel = model;
+        return model;
+      }
+      lastDetail = await probe.text().catch(() => '');
+      if (probe.status === 429) {
+        throw new Error('Google rate-limited the request. Wait a moment and try again.');
+      }
+      if (!isModelUnavailable(probe.status, lastDetail)) {
+        throw new Error(`Google returned HTTP ${probe.status}. ${lastDetail.slice(0, 200)}`);
+      }
+    } catch (e) {
+      // A timeout or network abort on a probe is a reason to try the next model.
+      if (e instanceof Error && !/rate-limited|returned HTTP/.test(e.message)) {
+        lastDetail = e.message;
+        continue;
+      }
+      throw e;
+    }
+  }
+
+  throw new Error(
+    `No model this key can use accepted a request. Last response: ${lastDetail.slice(0, 200)}`,
+  );
 }
 
 /**
@@ -166,7 +251,7 @@ export async function recogniseGemini(
         {
           parts: [
             { text: PROMPT },
-            { inline_data: { mime_type: 'image/jpeg', data: canvasBase64(canvas) } },
+            { inline_data: { mime_type: 'image/jpeg', data: canvasBase64(canvas, JPEG_QUALITY) } },
           ],
         },
       ],
@@ -180,36 +265,29 @@ export async function recogniseGemini(
       },
     });
 
-    // Try each model in turn. A retired model is a reason to move on, not to fail.
-    const models = resolvedModel ? [resolvedModel] : await candidateModels(trimmed);
+    // The model is settled with a few words before the picture is sent, so the image
+    // travels exactly once no matter how many candidates had to be ruled out.
+    const model = await resolveModel(trimmed);
+
     const startedAt = performance.now();
-    let res: Response | null = null;
-    let lastDetail = '';
-
-    for (const model of models) {
-      const attempt = await fetch(
-        `${API_ROOT}/models/${model}:generateContent?key=${encodeURIComponent(trimmed)}`,
-        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: request },
-      );
-      if (attempt.ok) {
-        resolvedModel = model;
-        res = attempt;
-        break;
-      }
-      lastDetail = await attempt.text().catch(() => '');
-      if (attempt.status === 429) {
-        throw new Error('Google rate-limited the request. Wait a moment and try again.');
-      }
-      if (!isModelUnavailable(attempt.status, lastDetail)) {
-        throw new Error(`Google returned HTTP ${attempt.status}. ${lastDetail.slice(0, 200)}`);
-      }
-      // Retired, or not available to this account. Fall through to the next candidate.
-      resolvedModel = null;
-    }
-
-    if (!res) {
+    const res = await withTimeout(
+      `${API_ROOT}/models/${model}:generateContent?key=${encodeURIComponent(trimmed)}`,
+      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: request },
+      REQUEST_TIMEOUT_MS,
+    ).catch(() => {
       throw new Error(
-        `No model this key can use accepted the request. Last response: ${lastDetail.slice(0, 200)}`,
+        'Google did not answer within 30 seconds. Check the connection, or switch to the on-device engine.',
+      );
+    });
+
+    if (!res.ok) {
+      const detail = await res.text().catch(() => '');
+      // The probe already proved this model answers, so a failure here is about the
+      // request, not the model. Report it rather than silently trying another.
+      throw new Error(
+        res.status === 429
+          ? 'Google rate-limited the request. Wait a moment and try again.'
+          : `Google returned HTTP ${res.status}. ${detail.slice(0, 200)}`,
       );
     }
 
