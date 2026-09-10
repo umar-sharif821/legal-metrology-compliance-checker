@@ -246,39 +246,63 @@ export async function recogniseGemini(
   const { img, revoke } = await loadImageElement(file);
   try {
     const { canvas, width, height } = renderTo(img, MAX_EDGE);
-    const request = JSON.stringify({
-      contents: [
-        {
-          parts: [
-            { text: PROMPT },
-            { inline_data: { mime_type: 'image/jpeg', data: canvasBase64(canvas, JPEG_QUALITY) } },
-          ],
-        },
-      ],
-      generationConfig: {
-        // Zero temperature: transcription is not a creative task, and a demonstration
-        // that reads the same packet differently twice is worse than one that reads it
-        // imperfectly the same way twice.
-        temperature: 0,
-        responseMimeType: 'application/json',
-        responseSchema: SCHEMA,
-      },
+    const parts = [
+      { text: PROMPT },
+      { inline_data: { mime_type: 'image/jpeg', data: canvasBase64(canvas, JPEG_QUALITY) } },
+    ];
+    const generationConfig = {
+      // Zero temperature: transcription is not a creative task, and a demonstration that
+      // reads the same packet differently twice is worse than one that reads it
+      // imperfectly the same way twice.
+      temperature: 0,
+      // Bounded so a model that starts repeating itself cannot run until the timeout.
+      maxOutputTokens: 4096,
+      responseMimeType: 'application/json',
+      responseSchema: SCHEMA,
+    };
+
+    /**
+     * Thinking off.
+     *
+     * Gemini 2.5 and later reason internally before answering, by default. For open
+     * questions that is the point; for transcribing a label it is pure latency, and it
+     * is what made a scan sit at thirty seconds and time out. `thinkingBudget: 0` turns
+     * it off. Older models reject the field, so the request is retried without it.
+     */
+    const withThinkingOff = JSON.stringify({
+      contents: [{ parts }],
+      generationConfig: { ...generationConfig, thinkingConfig: { thinkingBudget: 0 } },
     });
+    const withoutThinkingConfig = JSON.stringify({ contents: [{ parts }], generationConfig });
 
     // The model is settled with a few words before the picture is sent, so the image
     // travels exactly once no matter how many candidates had to be ruled out.
     const model = await resolveModel(trimmed);
 
+    const url = `${API_ROOT}/models/${model}:generateContent?key=${encodeURIComponent(trimmed)}`;
+    const send = (body: string) =>
+      withTimeout(
+        url,
+        { method: 'POST', headers: { 'Content-Type': 'application/json' }, body },
+        REQUEST_TIMEOUT_MS,
+      ).catch(() => {
+        throw new Error(
+          `${model} did not answer within ${REQUEST_TIMEOUT_MS / 1000} seconds. Check the connection, or switch to the on-device engine.`,
+        );
+      });
+
     const startedAt = performance.now();
-    const res = await withTimeout(
-      `${API_ROOT}/models/${model}:generateContent?key=${encodeURIComponent(trimmed)}`,
-      { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: request },
-      REQUEST_TIMEOUT_MS,
-    ).catch(() => {
-      throw new Error(
-        'Google did not answer within 30 seconds. Check the connection, or switch to the on-device engine.',
-      );
-    });
+    let res = await send(withThinkingOff);
+
+    if (!res.ok && res.status === 400) {
+      const detail = await res.text().catch(() => '');
+      if (/thinking/i.test(detail)) {
+        // This model predates the field. Send it again without.
+        res = await send(withoutThinkingConfig);
+      } else {
+        throw new Error(`Google returned HTTP 400. ${detail.slice(0, 200)}`);
+      }
+    }
 
     if (!res.ok) {
       const detail = await res.text().catch(() => '');
@@ -292,16 +316,28 @@ export async function recogniseGemini(
     }
 
     const ocrMs = Math.round(performance.now() - startedAt);
-    const body = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] } }[];
+    const answer = (await res.json()) as {
+      candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+      promptFeedback?: { blockReason?: string };
     };
-    const payload = body.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
+
+    const blocked = answer.promptFeedback?.blockReason;
+    if (blocked) throw new Error(`Google declined to read that image (${blocked}).`);
+
+    const finish = answer.candidates?.[0]?.finishReason;
+    const payload = answer.candidates?.[0]?.content?.parts?.[0]?.text ?? '';
 
     let parsed: ModelLine[];
     try {
       parsed = JSON.parse(payload) as ModelLine[];
     } catch {
-      throw new Error('Google returned a response this build could not read as JSON.');
+      // A truncated answer is the likely cause and is worth naming, because the remedy
+      // differs from a malformed one.
+      throw new Error(
+        finish === 'MAX_TOKENS'
+          ? 'That label had more text than one response could hold. Crop closer to the declaration panel and try again.'
+          : `Google returned a response this build could not read as JSON${finish ? ` (finished: ${finish})` : ''}.`,
+      );
     }
 
     const lines: OcrLine[] = (Array.isArray(parsed) ? parsed : [])
