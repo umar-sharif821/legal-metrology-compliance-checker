@@ -375,6 +375,7 @@ function buildScan(index: number, rand: () => number, nowMs: number): Scan {
     insufficientReason: admission.reason,
     // Sample records have no OCR behind them, and say so by carrying none.
     ocrLines: [],
+    analysisNote: null,
     packId: 'demo-lmpc-v0',
     packVersion: '0.1.0',
     timings: {

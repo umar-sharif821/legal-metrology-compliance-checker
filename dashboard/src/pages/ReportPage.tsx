@@ -297,6 +297,11 @@ export function ReportPage() {
               }
             />
             <div className="p-5">
+              {scan.analysisNote && (
+                <Note tone="unknown" className="mb-3">
+                  {scan.analysisNote}
+                </Note>
+              )}
               <LabelPreview scan={scan} highlight={highlight} />
               <p className="mt-3 text-[11.5px] leading-relaxed text-ink-500">
                 Every finding points at a region a person can look at and disagree with. Select a

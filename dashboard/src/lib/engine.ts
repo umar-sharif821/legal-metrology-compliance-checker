@@ -26,7 +26,7 @@ import type {
 } from '@engine/scan/types';
 import type { FieldReport as EngineField, Verdict } from '@engine/verdict/types';
 
-import { recognise } from './ocr';
+import { canvasUrl, recognise } from './ocr';
 import type { Admission, Box, FieldReport, Finding, FrameCheck, Scan } from './types';
 
 export type Stage = 'ocr' | 'extract' | 'evaluate';
@@ -137,13 +137,36 @@ export async function analyseInBrowser(
   onStage?: (stage: Stage) => void,
 ): Promise<Scan> {
   onStage?.('ocr');
-  const { frame, width, height } = await recognise(file);
+  const { candidates } = await recognise(file);
 
   onStage?.('extract');
-  const extraction = extract(DEMO_PACK, frame.lines);
+  // Best of N readings, ranked by how many declarations each located.
+  //
+  // Neither the whole frame nor the panel crop wins reliably — measured on the same
+  // scene, the frame kept the manufacturer and date while the crop kept consumer care.
+  // Extraction is about a millisecond, so running it over both and keeping the better
+  // costs nothing and removes the coin-flip. Ties go to the earlier candidate, which is
+  // the whole frame: when a crop locates no more than the original, there is no reason
+  // to show the reader a picture that is not the one they handed over.
+  const scored = candidates.map((c) => {
+    const extraction = extract(DEMO_PACK, c.frame.lines);
+    return { c, extraction, found: extraction.fields.length };
+  });
+  const best = scored.reduce((a, b) => (b.found > a.found ? b : a));
+  const { c: chosen, extraction } = best;
+  const { frame, width, height } = chosen;
 
   onStage?.('evaluate');
   const verdict = evaluate(DEMO_PACK, frame, extraction);
+
+  // When only a region was read, that region is what the report shows and what the
+  // evidence boxes are relative to. Showing the original beside boxes measured on a
+  // crop would put the working somewhere the reader cannot check it (P7).
+  const cropped = chosen.fraction < 0.995;
+  const shownUrl = cropped ? await canvasUrl(chosen.canvas) : imageUrl;
+  const analysisNote = cropped
+    ? `Most of your photograph was background, so the panel was located and re-read from the original at higher resolution. The image below is the region that was analysed — ${(chosen.fraction * 100).toFixed(0)}% of what you uploaded — and it located ${best.found} declarations against ${scored[0]?.found ?? 0} for the whole frame.`
+    : null;
 
   const norm = normaliser(width, height);
   const findings: Finding[] = verdict.findings.map((f) => ({
@@ -164,12 +187,13 @@ export async function analyseInBrowser(
     commodity: commodityFrom(verdict),
     status: verdict.status,
     source: 'upload',
-    imageUrl,
+    imageUrl: shownUrl,
     fields: toFields(verdict.fields, norm),
     findings,
     admission: toAdmission(verdict.admission),
     insufficientReason: verdict.insufficientReason,
     ocrLines: frame.lines.map((l) => l.text),
+    analysisNote,
     packId: verdict.packId,
     packVersion: verdict.packVersion,
     timings: {

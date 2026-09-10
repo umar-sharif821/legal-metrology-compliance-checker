@@ -47,9 +47,18 @@ Four findings. Click one. Point at:
 
 **1:50 — the refusal. This is the moment that wins.** Back → specimen **Shelf photo** → Analyse.
 **Insufficient evidence.**
-*"It refused. Panel coverage was 1.4% against a 2% floor — measured, not guessed. Most
-tools would have confidently reported five missing declarations here. We report that we
-cannot tell. A false flag costs an officer more than a missed one."*
+
+Point at the note above the image first: *"It didn't just give up. Most of that frame was
+background, so it located the panel, cropped it, and re-read it from the original at
+higher resolution — that took it from 2 declarations to 4."*
+
+Then the verdict: *"And it still refused. Five lines of text against a floor of six. Most
+tools would confidently report six missing declarations from a photo like this. We report
+that we cannot tell. A false flag costs an officer more than a missed one."*
+
+If a judge asks why it refuses having found four declarations: *"Because four out of six
+from five lines of text means we're probably looking at a fragment of a panel, not a
+panel. Reporting the other two as missing would be an accusation we can't support."*
 
 **2:20 — the governance screen.** `/rulepack`.
 *"Eight declarations, zero verified by a Legal Metrology officer, four with contested

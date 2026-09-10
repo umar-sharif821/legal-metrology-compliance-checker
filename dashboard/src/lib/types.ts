@@ -102,6 +102,14 @@ export interface Scan {
    * records, which have no OCR behind them.
    */
   readonly ocrLines: readonly string[];
+  /**
+   * What was done to the image before it was judged, when anything was.
+   *
+   * Null when the whole frame was analysed. Present when only a region was, because the
+   * report then shows that region and measures it — and a reader is entitled to know the
+   * picture on screen is not the picture they handed over.
+   */
+  readonly analysisNote: string | null;
   readonly packId: string;
   readonly packVersion: string;
   readonly timings: {
