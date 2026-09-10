@@ -567,18 +567,13 @@
     "fields": {
       "manufacturer_address": null,
       "commodity_name": null,
-      "net_quantity": null,
+      "net_quantity": "84.9g",
       "retail_sale_price": "₹ 20",
       "date_of_packing": "08/23",
       "consumer_care": null
     },
     "status": "ATTENTION",
-    "findings": [
-      "LMPC-6-1-MFR-PRESENT",
-      "LMPC-6-1-NAME-PRESENT",
-      "LMPC-6-1-NETQTY-PRESENT",
-      "LMPC-6-1-CARE-PRESENT"
-    ],
-    "notes": "Same packet, a better capture, and a different set of mistakes - which is itself the finding: a deterministic decision layer (P1 holds) fed by a stochastic OCR layer gives a different verdict every pass. Two changes wanted from current behaviour. (1) net_quantity returned '15.1g' via C_shape_only, read out of 'PROPRIETARY FOOD--NAMKEEN(15.1)' - an FSSAI food-category code, not a quantity. Shape-only recovery must not match it. (2) LMPC-6-1-MRP-INCLUSIVE fired even though the packet DOES carry the wording: line 39 is 'MIRP RS. 20/- (NCL. OF 42L TAYES)', i.e. OCR mangled 'INCL. OF ALL TAXES'. Flagging a compliant declaration because the recogniser garbled it is a false flag, and the pack's own remedy text already predicts it ('a common OCR miss'). The phrase match needs to tolerate OCR noise - tunable in the lexicon, no code change. JUDGEMENT CALL on net_quantity: the true answer is '84.9 g' and it IS in the OCR, at line 49 ('84.9g 78 +i)', y=2868 x=1475) - 19 indices from its anchor at line 30 (y=3013 x=886). Recovering it needs spatial anchor-value association, which is T-2.3 and is code, not JSON. So null is the near-term target (silence beats '15.1g') and '84.9 g' is the T-2.3 target. Change this to '84.9 g' if you would rather the corpus encode the real goal and stay red until T-2.3. JUDGEMENT CALL on date_of_packing: '08/23' comes from '25/08/23 & 22/dv27'. It drops the day from a full MFD date of 25/08/23. Accepted as correct in substance; tighten if you disagree."
+    "findings": ["LMPC-6-1-MFR-PRESENT", "LMPC-6-1-NAME-PRESENT", "LMPC-6-1-CARE-PRESENT"],
+    "notes": "Same packet, a better capture, and a different set of mistakes - which is itself the finding: a deterministic decision layer (P1 holds) fed by a stochastic OCR layer gives a different verdict every pass. Two changes wanted from current behaviour. (1) net_quantity returned '15.1g' via C_shape_only, read out of 'PROPRIETARY FOOD--NAMKEEN(15.1)' - an FSSAI food-category code, not a quantity. Shape-only recovery must not match it. (2) LMPC-6-1-MRP-INCLUSIVE fired even though the packet DOES carry the wording: line 39 is 'MIRP RS. 20/- (NCL. OF 42L TAYES)', i.e. OCR mangled 'INCL. OF ALL TAXES'. Flagging a compliant declaration because the recogniser garbled it is a false flag, and the pack's own remedy text already predicts it ('a common OCR miss'). The phrase match needs to tolerate OCR noise - tunable in the lexicon, no code change. JUDGEMENT CALL on net_quantity: the true answer is '84.9 g' and it IS in the OCR, at line 49 ('84.9g 78 +i)', y=2868 x=1475) - 19 indices from its anchor at line 30 (y=3013 x=886). Recovering it needs spatial anchor-value association, which is T-2.3 and is code, not JSON. So null is the near-term target (silence beats '15.1g') and '84.9 g' is the T-2.3 target. Change this to '84.9 g' if you would rather the corpus encode the real goal and stay red until T-2.3. JUDGEMENT CALL on date_of_packing: '08/23' comes from '25/08/23 & 22/dv27'. It drops the day from a full MFD date of 25/08/23. Accepted as correct in substance; tighten if you disagree. RESOLVED 2026-09-10 by A-4 (T-2.3 spatial association). net_quantity is now '84.9g', reached from the 'NET QTY:' anchor at line 30 by geometry rather than list order: line 49 sits 2.6 anchor-heights to its right with the two row centres 0.99 anchor-heights apart, and it is the only candidate in either neighbourhood, so there is no runner-up for it to have to beat. Written '84.9g' and NOT '84.9 g' as the plan's acceptance line says: the OCR line is '84.9g 78 +i)' with no space, and what is recorded here is what the label was read to say, not a tidied version of it (P4). LMPC-6-1-NETQTY-UNIT passes on that value, so this removes LMPC-6-1-NETQTY-PRESENT and adds nothing. The other two judgement calls above stand unchanged."
   }
 }

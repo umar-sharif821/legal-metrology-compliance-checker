@@ -16,6 +16,17 @@
       "reviewed_on": null,
       "note": "No Legal Metrology officer has reviewed any entry in this file. Sub-clause letters are unverified and contested — see clause.alternate_readings on each declaration. Every finding is therefore capped at 'advisory'. Nothing here may be presented as a determination of law."
     },
+    "spatial_association": {
+      "note": "Stage B's geometry. Method parameters, not statutory values — nothing here is law, and none of it may be read as one. Distances are expressed in multiples of the ANCHOR'S OWN text height, so they scale with camera distance instead of being pixel counts tied to one phone. They live in the pack so tuning against the gold set is a data change (P6). HONESTY LIMIT: these defaults were sized from typography (a text row's pitch is a little over its glyph height; a two-column panel puts its values within a few glyph heights of the label) and then checked against the D-3 corpus, which is two captures of one packet. They are NOT corpus-derived numbers and must not be quoted as tuned until the corpus has variety (P8).",
+      "max_right_gap_heights": 4.0,
+      "max_row_drift_heights": 1.2,
+      "row_pitch_heights": 1.6,
+      "min_column_overlap": 0.3,
+      "proximity_weight": 0.6,
+      "shape_strength_weight": 0.4,
+      "min_score": 0.2,
+      "min_margin": 0.1
+    },
     "evidence_thresholds": {
       "min_ocr_lines": 6,
       "min_fields_found": 2,
@@ -110,7 +121,7 @@
   },
 
   "lexicons": {
-    "note": "Anchor terms are matched case-insensitively against normalised OCR lines. Stage B associates the value on the same line after the anchor, else the line below it.",
+    "note": "Anchor terms are matched case-insensitively against normalised OCR lines, with a word boundary required only on the sides where the anchor itself ends in a letter or digit. Stage A takes the value from the anchor's own line. Stage B (since A-4) looks for it where it is printed — to the right of the anchor on the same row, or below it in the same column — and no longer by position in the OCR line list. See metadata.spatial_association for the bounds and scan/associate.ts for how they are used.",
     "manufacturer_address": [
       "manufactured by",
       "mfd by",
@@ -220,7 +231,7 @@
       "unanchored_recovery": false,
       "value_presentation": "captured",
       "value_may_span_lines": 1,
-      "extraction_note": "Anchored recovery only. This field claimed 'shape is distinctive enough to recover without an anchor' until the D-3 field trial falsified it: on record 002 shape-only recovery returned '15.1g', read out of the FSSAI food-category code in 'PROPRIETARY FOOD--NAMKEEN(15.1)'. A number with a mass unit is not distinctive on a food label - a nutrition panel is full of them (0.3g, 33.4g, 08g), and nothing in the line alone separates the declaration from the table. Turning this off means a packet whose 'Net Qty' anchor is missed now reports the declaration as not found, which is an advisory saying 'rescan the panel' - honest about what was read, where '15.1g' was a confident falsehood about what the label says (P3, P4). Recovering the real value from an anchor several lines away needs spatial association: T-2.3."
+      "extraction_note": "Anchored recovery only. This field claimed 'shape is distinctive enough to recover without an anchor' until the D-3 field trial falsified it: on record 002 shape-only recovery returned '15.1g', read out of the FSSAI food-category code in 'PROPRIETARY FOOD--NAMKEEN(15.1)'. A number with a mass unit is not distinctive on a food label - a nutrition panel is full of them (0.3g, 33.4g, 08g), and nothing in the line alone separates the declaration from the table. Turning this off means a packet whose 'Net Qty' anchor is missed now reports the declaration as not found, which is an advisory saying 'rescan the panel' - honest about what was read, where '15.1g' was a confident falsehood about what the label says (P3, P4). Recovering the real value from an anchor several lines away needs spatial association, which A-4 (T-2.3) delivered on 2026-09-10: on record 002 the true '84.9g' is now reached from the 'NET QTY:' anchor because it is printed 2.6 anchor-heights to its right, nineteen entries away in the OCR list. Unanchored recovery stays OFF — that fix and this one are independent, and the shape is still not distinctive on a nutrition panel."
     },
     {
       "id": "retail_sale_price",

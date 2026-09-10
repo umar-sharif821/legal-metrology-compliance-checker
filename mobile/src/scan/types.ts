@@ -67,6 +67,26 @@ export type ExtractionStage =
 
 export type Confidence = 'high' | 'medium' | 'low';
 
+/** Which neighbourhood of its anchor a stage-B value was found in. */
+export type AssociationDirection = 'right' | 'below';
+
+/**
+ * How stage B tied a value to its anchor — the geometric working, kept for a human (P7).
+ *
+ * Lives here rather than beside the algorithm because the field-trial record carries it
+ * and the record's types must stay loadable under Node. See `scan/associate.ts` for how
+ * each number is arrived at.
+ */
+export interface Association {
+  readonly direction: AssociationDirection;
+  /** Edge-to-edge gap between anchor and value, in multiples of the anchor's text height. */
+  readonly gapHeights: number;
+  /** The winning candidate's score, 0-1. */
+  readonly score: number;
+  /** The next-best candidate's score, or null when there was only one. */
+  readonly runnerUpScore: number | null;
+}
+
 export interface ExtractedField {
   readonly fieldId: string;
   /** The substring judged to be the declared value. */
@@ -78,6 +98,15 @@ export interface ExtractedField {
   readonly box: Box | null;
   readonly stage: ExtractionStage;
   readonly confidence: Confidence;
+  /**
+   * How stage B tied this value to its anchor — direction, distance, score and margin.
+   *
+   * Null whenever geometry was not what chose the value: stages A and C associate
+   * nothing, and stage B falls back to reading order when the engine reported no box for
+   * the anchor line. A reader can therefore tell a spatially associated value from one
+   * paired by list order without guessing (P9).
+   */
+  readonly association: Association | null;
 }
 
 export interface ExtractionResult {

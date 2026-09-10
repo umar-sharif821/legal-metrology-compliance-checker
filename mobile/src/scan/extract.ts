@@ -4,9 +4,9 @@
  * Three stages, tried in order of how much evidence each one rests on. This mirrors
  * plan §7.2, at demo scale:
  *
- *   A  anchor and value on the same line          → high confidence
- *   B  anchor on one line, value just below it    → medium confidence
- *   C  no anchor at all, value recognised by shape → low confidence
+ *   A  anchor and value on the same line               → high confidence
+ *   B  anchor and value in the same region of the label → medium confidence
+ *   C  no anchor at all, value recognised by shape      → low confidence
  *
  * Stage C only runs for fields the pack marks `unanchored_recovery`, because only some
  * shapes are distinctive enough to stand alone. `₹45.00` is unmistakably a price;
@@ -19,9 +19,11 @@
  * This module is pure: same lines in, same fields out, no clock, no I/O, no randomness.
  */
 
-import type { CompiledField, CompiledPack } from '../rulepack/pack';
+import type { CompiledField, CompiledPack, SpatialAssociation } from '../rulepack/pack';
+import { associate, type Candidate } from './associate';
 import { findAnchorEnd, normaliseLines, stripLeadingSeparators } from './normalise';
 import type {
+  Association,
   Box,
   Confidence,
   ExtractedField,
@@ -50,24 +52,11 @@ function unionBox(boxes: readonly (Box | null)[]): Box | null {
 /**
  * Is `candidate` anywhere other than *above* `anchor` on the label?
  *
- * Stage B's whole claim is "anchor on one line, value **just below** it", and until D-3
- * it never checked. It paired by position in the OCR line list, which is reading order
- * over the whole panel, not adjacency on the label. Measured on record 001: `NET QTY:`
- * (index 30, y=3365) was paired with `Pee 100g` (index 31, y=1697) — the nutrition
- * table's "Per 100 g", 1668 px away and most of the panel *higher up* — and the app
- * reported `net_quantity = "100g"` at medium confidence. Every number needed to reject
- * that pairing was already in the record and was never read.
- *
- * The test is deliberately the weakest one that is still true by definition: the
- * candidate's bottom edge must fall below the anchor's top edge. A value OCR split onto
- * its own line entry while sharing the anchor's row still passes; only a candidate
- * wholly above the anchor is refused. There is no distance threshold and no column
- * test here on purpose — choosing those numbers against a single packet is exactly the
- * tuning `T-2.3` exists to do properly, against the gold set.
- *
- * With no geometry from the engine the answer is `true`: degrade to the old list-order
- * behaviour rather than refusing to extract at all (P9 — the stage and confidence still
- * say how the value was found).
+ * The reading-order fallback's only geometric test, and the weakest one that is still
+ * true by definition: the candidate's bottom edge must fall below the anchor's top edge.
+ * With no box for either line the answer is `true` — degrade to pure list order rather
+ * than refusing to extract at all (P9; the stage and confidence still say how the value
+ * was found, and `association: null` says geometry was not what chose it).
  */
 function isNotAbove(anchorBox: Box | null, candidateBox: Box | null): boolean {
   if (anchorBox === null || candidateBox === null) return true;
@@ -106,6 +95,7 @@ function make(
   lines: readonly OcrLine[],
   normalised: readonly string[],
   stage: ExtractionStage,
+  association: Association | null = null,
 ): ExtractedField {
   return {
     fieldId: field.id,
@@ -115,7 +105,123 @@ function make(
     box: unionBox(lineIndexes.map((i) => lines[i]?.box ?? null)),
     stage,
     confidence: CONFIDENCE_BY_STAGE[stage],
+    association,
   };
+}
+
+/**
+ * Stage B by geometry — the `A-4` path.
+ *
+ * Offers every line except the anchor's own to `associate`, which decides by where the
+ * boxes sit rather than by how far apart the two entries are in the OCR list. A line is
+ * offered only if it could carry the value at all: non-empty, geometry present, and — for
+ * a field that declares a shape — matching the loose anchored shape.
+ *
+ * The field's `value_may_span_lines` is what becomes the downward reach. It is a count of
+ * text rows in the pack, and a row's pitch is a little over its glyph height, so the two
+ * are converted with `row_pitch_heights`. The number stays where it was and keeps meaning
+ * what it meant; only the unit it is measured in changed, from list entries to label
+ * geometry. Sideways reach is not per-field — a value printed beside its label is on the
+ * same row whatever kind of declaration it is.
+ *
+ * Returns null when the anchor has no box (the caller then falls back to reading order),
+ * and also when the geometry simply did not answer — see `associate` on why refusing is
+ * the right output there.
+ */
+function stageBByGeometry(
+  field: CompiledField,
+  anchorIndex: number,
+  anchoredShape: CompiledField['shape'],
+  lines: readonly OcrLine[],
+  normalised: readonly string[],
+  cfg: SpatialAssociation,
+): ExtractedField | null {
+  const anchorBox = lines[anchorIndex]?.box ?? null;
+  if (anchorBox === null) return null;
+
+  const captured = new Map<number, string>();
+  const candidates: Candidate[] = [];
+  for (let j = 0; j < normalised.length; j++) {
+    if (j === anchorIndex) continue;
+    const text = normalised[j];
+    if (text.length === 0) continue;
+    const box = lines[j]?.box ?? null;
+    if (box === null) continue;
+
+    if (anchoredShape) {
+      const hit = shapeMatch(anchoredShape.re, text);
+      if (hit === null) continue;
+      captured.set(j, hit);
+    }
+    candidates.push({
+      index: j,
+      box,
+      // A candidate that clears the field's strict shape as well as the loose one is
+      // better evidence. With no strict shape to clear, every candidate scores the same
+      // here and the choice is left to geometry alone.
+      matchesStrictShape: field.shape !== null && field.shape.re.test(text),
+    });
+  }
+
+  const reach = Math.max(1, field.valueMaySpanLines) * cfg.rowPitchHeights;
+  const chosen = associate(anchorBox, candidates, reach, cfg);
+  if (chosen === null) return null;
+
+  const j = chosen.candidate.index;
+  const value = anchoredShape
+    ? present(field, captured.get(j) ?? '', normalised[j])
+    : normalised[j];
+  if (value.length === 0) return null;
+
+  return make(
+    field,
+    value,
+    [anchorIndex, j],
+    lines,
+    normalised,
+    'B_anchored_adjacent',
+    chosen.association,
+  );
+}
+
+/**
+ * Stage B by reading order — the pre-`A-4` behaviour, kept as the degraded path.
+ *
+ * Used only when the engine gave the anchor line no bounding box, which is the one case
+ * where geometry cannot be consulted. Pairing by list index is what `A-4` exists to
+ * replace, so this is a fallback and never a first choice; the field it produces carries
+ * `association: null`, which is how a reader tells the two apart (P9).
+ */
+function stageBByReadingOrder(
+  field: CompiledField,
+  anchorIndex: number,
+  anchoredShape: CompiledField['shape'],
+  lines: readonly OcrLine[],
+  normalised: readonly string[],
+): ExtractedField | null {
+  const span = Math.max(1, field.valueMaySpanLines);
+  for (let k = 1; k <= span && anchorIndex + k < normalised.length; k++) {
+    const j = anchorIndex + k;
+    const below = normalised[j];
+    if (below.length === 0) continue;
+    if (!isNotAbove(lines[anchorIndex]?.box ?? null, lines[j]?.box ?? null)) continue;
+    if (anchoredShape) {
+      const hit = shapeMatch(anchoredShape.re, below);
+      if (hit !== null) {
+        return make(
+          field,
+          present(field, hit, below),
+          [anchorIndex, j],
+          lines,
+          normalised,
+          'B_anchored_adjacent',
+        );
+      }
+    } else {
+      return make(field, below, [anchorIndex, j], lines, normalised, 'B_anchored_adjacent');
+    }
+  }
+  return null;
 }
 
 /**
@@ -123,13 +229,14 @@ function make(
  *
  * Returns the first hit, scanning top to bottom. On a label the declarations appear
  * once; taking the first is both correct and cheap. Where two candidates genuinely
- * compete (two prices on a promotional pack) this picks the upper one and marks its
- * stage — resolving that contest properly is `T-2.3`, not demo work.
+ * compete *for the same anchor*, `associate` resolves the contest by geometry or refuses;
+ * two separate anchors on one label are still settled by the upper one winning.
  */
 function extractField(
   field: CompiledField,
   lines: readonly OcrLine[],
   normalised: readonly string[],
+  cfg: SpatialAssociation,
 ): ExtractedField | null {
   // Stages A and B run after an anchor has already established what the line is
   // about, so they may use the looser shape. Stage C has no such warrant and must use
@@ -155,27 +262,12 @@ function extractField(
       }
     }
 
-    // ---- Stage B: anchor here, value on the lines below -------------------
-    const span = Math.max(1, field.valueMaySpanLines);
-    for (let k = 1; k <= span && i + k < normalised.length; k++) {
-      const below = normalised[i + k];
-      if (below.length === 0) continue;
-      if (!isNotAbove(lines[i]?.box ?? null, lines[i + k]?.box ?? null)) continue;
-      if (anchoredShape) {
-        const hit = shapeMatch(anchoredShape.re, below);
-        if (hit !== null) {
-          return make(
-            field,
-            present(field, hit, below),
-            [i, i + k],
-            lines,
-            normalised,
-            'B_anchored_adjacent',
-          );
-        }
-      } else {
-        return make(field, below, [i, i + k], lines, normalised, 'B_anchored_adjacent');
-      }
+    // ---- Stage B: anchor here, value somewhere around it ------------------
+    const spatial = stageBByGeometry(field, i, anchoredShape, lines, normalised, cfg);
+    if (spatial !== null) return spatial;
+    if ((lines[i]?.box ?? null) === null) {
+      const ordered = stageBByReadingOrder(field, i, anchoredShape, lines, normalised);
+      if (ordered !== null) return ordered;
     }
     // Anchor seen but no value found near it. Keep scanning: the label may repeat the
     // anchor somewhere more useful.
@@ -208,7 +300,7 @@ export function extract(pack: CompiledPack, lines: readonly OcrLine[]): Extracti
 
   const fields: ExtractedField[] = [];
   for (const field of pack.fields) {
-    const found = extractField(field, lines, normalised);
+    const found = extractField(field, lines, normalised, pack.metadata.association);
     if (found) fields.push(found);
   }
 

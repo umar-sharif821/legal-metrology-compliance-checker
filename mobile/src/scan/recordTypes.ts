@@ -98,6 +98,25 @@ export interface FieldTrialRecord {
     readonly sourceText: string;
     readonly stage: string;
     readonly confidence: string;
+    /**
+     * The stage-B geometry that chose this value, or null when geometry did not choose it.
+     *
+     * Kept in the record because it is the working behind the pairing, and a reviewer
+     * writing an `expect` block needs to see *why* a value was tied to its anchor before
+     * agreeing that it should have been. Widened to `string`/`number` here for the same
+     * reason `stage` is: a record written by an older build must still parse.
+     *
+     * **Optional, and absent on records 001 and 002**, which were taken before `A-4`
+     * existed. The schema id is deliberately not bumped for it: `extracted` is the
+     * descriptive half of a record and the replay reads only `lines` and `expect`, so a
+     * record without this key is not a record the suite cannot use.
+     */
+    readonly association?: {
+      readonly direction: string;
+      readonly gapHeights: number;
+      readonly score: number;
+      readonly runnerUpScore: number | null;
+    } | null;
   }[];
   /** The verdict the device reached at record time. Descriptive, not normative. */
   readonly verdict: {

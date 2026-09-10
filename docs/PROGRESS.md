@@ -3,7 +3,7 @@
 > Single source of truth for project state. Updated by `/handoff`, read by `/pickup`.
 > Keep it terse. This file is read in full every session — every line costs tokens.
 
-**Last updated:** 2026-09-10 · **Sessions completed:** 9 · **Current sprint:** 1 (paused for the demo detour)
+**Last updated:** 2026-09-10 · **Sessions completed:** 10 · **Current sprint:** 1 (paused for the demo detour)
 
 ---
 
@@ -33,50 +33,106 @@
 > All three are cheaper than swapping engines would have been, and `A-4` fixes the largest
 > defect the field trial found, which was never an OCR failure.
 
-**Current demo phase:** `C-0` — capture quality · **DONE and fully verified on the Nord 4.**
-**Status:** all nine gates green (80 TS tests, 34 pytest). Nothing red, nothing pending.
+**Current demo phase:** `A-4` — spatial anchor–value association. **DONE.**
+**Status:** all nine gates green (**104** TS tests, up from 80; 34 pytest). Nothing red.
 
-**The upload path is verified end to end.** Picker → pick → judge → verdict, with the
-stats line reading `uploaded photo · capture n/a · 20 lines · OCR 692 ms · extract 3 ms ·
-evaluate 0 ms`. **`capture n/a`, not `0`** — the `captureMs: null` decision (P4) is holding
-on the device, not just in the type system. This was the last open item on `C-0`.
+**The acceptance test the plan wrote down has passed.** `DEMO_PLAN` §4 A-4 said *"record
+002 yields `84.9 g`, record 001 still yields nothing for that field, and no earlier packet
+regresses."* All three hold. Record 002's `expect.net_quantity` is no longer `null`; the
+`LMPC-6-1-NETQTY-PRESENT` false finding is gone, `LMPC-6-1-NETQTY-UNIT` passes on the
+recovered value, and the verdict stays `ATTENTION` on the three findings that remain.
 
-**It was unverified because it was untappable — a real defect, now fixed.** `ScanScreen`'s
-control block was anchored with a bare `bottom: 36` and no navigation-bar inset. The Nord 4
-runs at density 480, so Android's three-button bar owns the lowest 144 px; the gallery
-Pressable spanned y 2067–2162 and its lower third sat *inside* that region. A tap aimed at
-*Use a photo from the gallery* reached **HOME**. `VerdictScreen` had reserved the inset all
-along — the constant was private to the file that got it right, so the second screen was
-missed. `NAV_BAR_INSET` now lives in `mobile/src/ui/layout.ts`, both screens import it, and
-`mobile/src/ui/layout.test.ts` fails the build if any `bottom:` offset in `mobile/src` omits
-it. **The guard was confirmed to fail on the old value before being kept.**
+**The value is recorded as `84.9g`, not `84.9 g`.** The plan's acceptance line writes it
+with a space; the OCR line is `84.9g 78 +i)` with none. What goes in the corpus is what the
+label was read to say, not a tidied version of it (P4). Do not "fix" this to match the plan.
 
-**Next phase to actually start:** **`A-4`** — spatial anchor–value association. *(no device)*
+**What changed, in one sentence.** Stage B used to pair an anchor at OCR list index `i`
+with lines `i+1 … i+n`; it now pairs by where the boxes actually sit — to the right of the
+anchor on the same row, or below it in the same column — and refuses when the geometry does
+not answer clearly.
 
-**`D-3` is paused at 2/10 by user decision, not finished and not dropped.** The flow works
-now, so resuming it is cheap whenever the packets are collected. The reason to go to `A-4`
-first: the eight packets still to collect would mostly re-demonstrate the *same* known
-defect, and each one costs a hand-written `expect` block asserting behaviour we already know
-is wrong. Fix the association first, then collect against a pack worth measuring.
+- `mobile/src/scan/associate.ts` (new) is the whole decision: two directional
+  neighbourhoods, a score, a floor and a margin. Pure, no pack knowledge, no field
+  knowledge.
+- `mobile/src/scan/extract.ts` Stage B split into `stageBByGeometry` (the path) and
+  `stageBByReadingOrder` (the degraded path). **The old behaviour is still there**, used
+  only when the engine gave the anchor line no box.
+- Every threshold is in `demo-lmpc-v0.json` → `metadata.spatial_association` (P6). The
+  loader has **no defaults** — a pack missing one of them is refused at startup, and a test
+  asserts that, so none of these numbers can drift back into code.
 
-**This runs against the plan's own cut order**, which ranks `D-3` last to drop (`DEMO_PLAN`
-§"what to cut": *"Never drop D-3 to reach D-5 — an unpolished demo that reads real labels
-beats a polished one that does not"*). That warning is about **dropping** `D-3` to reach
-polish, which is not what this is: `A-4` is accuracy work, `D-3` stays on the board at
-`[>]`, and it must be resumed before `D-5`. **If `D-3` is still at 2/10 when `D-5` comes
-up, stop and finish `D-3` first.**
+**Distances are in multiples of the anchor's own text height, never pixels.** This is the
+load-bearing choice, not a detail: it makes the thresholds survive a change of camera
+distance, and there is a test (`reads the same label the same way from a different
+distance`) that fails if anyone re-expresses one in pixels.
 
-**Judging a packet is not recording it.** Packet 3 was uploaded and judged this session but
-never recorded, so the corpus is still at 2. The remaining `D-3` work is 8 more packets *and*
-a hand-written `expect` block for each — the `expect` blocks are the slow half, not the
-photography. **Variety, not count:** both current records are the same product, so the pack
-is tuned to one label. Ten is a round number from the plan, not a derived one — the real
-stopping rule is *when a new packet stops breaking something new*.
+**Two things the record-002 geometry taught, which a synthetic fixture would never have.**
+
+1. **A vertical-overlap test would have rejected the right answer.** `NET QTY:` (y 3013–3136)
+   and `84.9g` (y 2868–3037) share only 24 px, because the packet was photographed by hand
+   and the panel is not square to the sensor. What holds is the drift between the two row
+   *centres* — 0.99 anchor-heights. Row membership is a centre test, not an overlap test.
+2. **The value is 322 px away — 2.6 anchor-heights.** A tight neighbourhood would have
+   missed it. The reach has to be generous and the *margin* has to do the refusing.
+
+**`association` now travels with every value** — direction, gap in anchor-heights, score,
+runner-up score — through `ExtractedField` → `FieldReport` → the verdict screen chip
+(`net_quantity · B_anchored_adjacent · medium · right 2.62×`) and into the field-trial
+record. A stage-B value with **no** association was paired by list order, and says so by
+omission (P9). It is optional on the record type: 001 and 002 predate it, and the schema id
+is deliberately not bumped, because replay reads only `lines` and `expect`.
+
+**Not verified on the phone, and here is exactly how far it got.** `A-4` is a *no device*
+phase and this is a JS-only change. Metro was confirmed to be serving this checkout
+(`stageBByGeometry` and `maxRightGapHeights` are both in the bundle it returns), and the
+pack compiles — the test suite imports `DEMO_PACK`, which compiles at module load. **The app
+was not launched and the screen was not touched:** `dumpsys window` showed
+`io.supercent.weaponrpg` in the foreground, i.e. the user was using their phone. The one
+thing still unseen on a device is the new chip text on the verdict screen. Check it whenever
+the phone is next free; it is cosmetic and nothing depends on it.
+
+**What `A-4` did NOT do, and must not be claimed.** It fixed *association*. It did not
+touch recognition, and the other two declarations `C-0` measured as missing on that capture
+— `commodity_name` and `manufacturer_address` — are still missing, because neither has an
+anchor anywhere in those lines. The `A-4` win is one field on one packet, backed by a rule
+stated in geometry rather than by a tuned constant.
+
+**The thresholds are NOT corpus-tuned, and the pack says so in its own note.** They were
+sized from typography (a text row's pitch is a little over its glyph height; a two-column
+panel puts values within a few glyph heights of the label) and then *checked* against a
+corpus of two captures of one packet. That is not tuning and must not be described as it
+(P8). They become real numbers when `D-3` has variety. `DEMO_PLAN` §4 A-4 already required
+this — *"chosen against the field-trial corpus, never against a single packet"* — and it is
+the one line of that phase not yet satisfiable.
+
+**Next phase to actually start:** **`A-0`** — make accuracy measurable. *(no device)*
+
+**`D-3` is still paused at 2/10 by user decision** — see the reasoning below, which stands
+unchanged. It must be resumed before `D-5`. **If `D-3` is still at 2/10 when `D-5` comes
+up, stop and finish `D-3` first.** With `A-4` landed, the argument for collecting now is
+stronger than it was: a new packet will exercise the association rule rather than
+re-demonstrating a defect already understood.
+
+**Judging a packet is not recording it.** Packet 3 was uploaded and judged two sessions ago
+but never recorded, so the corpus is still at 2. The remaining `D-3` work is 8 more packets
+*and* a hand-written `expect` block for each — the `expect` blocks are the slow half, not
+the photography. **Variety, not count:** both current records are the same product, so the
+pack is tuned to one label. Ten is a round number from the plan, not a derived one — the
+real stopping rule is *when a new packet stops breaking something new*.
 Photograph the remaining packets with the stock camera app, then feed each in with *Use a
 photo from the gallery* and hit **Record**. `mobile/field-trial/README.md` has the flow and
 the `source` table.
 
-Then `A-0` (measure it) and `A-4` (spatial association). **Nothing is blocked on anyone.**
+**`C-0` is done and fully verified on the Nord 4** — full-quality still, image upload,
+viewfinder demoted to framing feedback, and the nav-bar inset fixed on both screens
+(`NAV_BAR_INSET` in `mobile/src/ui/layout.ts`, guarded by `mobile/src/ui/layout.test.ts`).
+What it measured, and the reason `A-4` came next: same packet, seconds apart, a
+`skipProcessing` viewfinder pass gave **32 lines and on a second pass 0**, a full-quality
+capture gave **111** — 3.5× the text for about half a second more, ~1.6 s shutter to
+verdict. ML Kit was never the binding constraint; the frame was. But that 111-line capture
+still located 2 of 6 declarations and **both were wrong**, while `150 g`, `₹65.00` and
+`15JUL.2026` sat legibly in the frame, unfound. Recognition was not the bottleneck;
+association was. That is what `A-4` has now addressed.
 
 **Driving the scan screen over ADB — read this before automating the phone again.**
 - `uiautomator dump` **fails on the scan screen** with `ERROR: could not get idle state` —
@@ -95,30 +151,12 @@ Then `A-0` (measure it) and `A-4` (spatial association). **Nothing is blocked on
 
 **A second real packet's declarations panel is already in the gallery** — a tight, legible
 shot with `NET QUANTITY 150 g`, `DATE OF MANUFACTURE 15JUL.2026`, `BATCH NO. 28085`,
-`USE BY 14JAN.2027`, `₹65.00`, `(Inclusive of all taxes)`. It was uploaded and judged this
-session but **deliberately not recorded** — recording reds the suite until a person writes
-its `expect` block, which is the user's call. It is packet 3 of 10 and it is ready to go.
+`USE BY 14JAN.2027`, `₹65.00`, `(Inclusive of all taxes)`. It was uploaded and judged but
+**deliberately not recorded** — recording reds the suite until a person writes its `expect`
+block, which is the user's call. It is packet 3 of 10 and it is ready to go. **It is now
+also the best available first test of `A-4` on a packet the rule was not written against.**
 
-**What `C-0` measured, and it is the phase's whole result.** Same packet, same scene,
-seconds apart on the Nord 4 (Bhujialalji Navratna Mix, packet 3):
-
-| | Viewfinder pass (`skipProcessing`) | Full-quality capture |
-|---|---|---|
-| Lines recognised | 32, and on a second pass **0** | **111** |
-| Capture / OCR | 335 ms / 727 ms | 785 ms / 842 ms |
-
-**3.5× the text for about half a second more**, ~1.6 s shutter to verdict. ML Kit was never
-the binding constraint — the frame was. The zero-line pass is the sharper number: the panel
-filled the frame and the preview frame was simply too blurry to read, which is exactly what
-`D-4`'s frame admission exists to catch.
-
-**It did not fix extraction, and that is the finding to carry into `A-4`.** That 111-line
-capture still located 2 of 6 declarations and **both were wrong** — `manufacturer:
-"gls flims Industries"`, `commodity_name: "of india"` — while `150 g`, `₹65.00` and
-`15JUL.2026` sat legibly in the frame, unfound. Recognition is no longer the bottleneck;
-association is. `A-4` is now backed by evidence rather than argument.
-
-**All nine gates are green** (80 TS tests, 34 pytest). The next packet recorded will red
+**All nine gates are green** (104 TS tests, 34 pytest). The next packet recorded will red
 the suite until somebody writes its `expect` block — the mechanism working, not a breakage.
 
 ### The corpus and how it works
@@ -170,10 +208,10 @@ Three things to carry forward:
 
 Both records' `notes` fields carry the reasoning. The two that matter:
 
-- Record 002 `net_quantity` expects `null`, not `"84.9 g"`. The true value **is** in the OCR
-  at line 49 (`84.9g 78 +i)`, y=2868 x=1475), 19 indices from its anchor at line 30
-  (y=3013 x=886). Reaching it needs spatial association — `T-2.3`, code, not JSON. `null`
-  is the near-term target because silence beats `15.1g` (P3); `"84.9 g"` is the T-2.3 target.
+- ~~Record 002 `net_quantity` expects `null`~~ — **resolved by `A-4`**, it now expects
+  `"84.9g"`. Kept here only so the next reader knows the corpus moved and why. The value
+  is reached from its anchor 19 list-indices away because it is printed 2.6 anchor-heights
+  to its right.
 - Record 001 `commodity_name` expects `null`, though `namkeen` (line 8) is arguably the
   commodity name. Left null: P3 prefers silence, and one packet does not justify a new
   lexicon term.
@@ -214,9 +252,12 @@ build it, then launch, or the app sits on a white screen looking broken.
 `adb shell`.** Prefix those commands with `MSYS_NO_PATHCONV=1` or the file lands nowhere and
 the error is misleading (it prints both a failure and "1 file pushed").
 
-**The phone is the user's daily driver.** A call came in mid-test this session; check
-`adb shell dumpsys telephony.registry | grep mCallState` (0 = idle) before driving the UI,
-and stop entirely if `dumpsys window | grep mCurrentFocus` shows an app the user opened.
+**The phone is the user's daily driver, and this check has now stopped a session twice.**
+Check `adb shell dumpsys telephony.registry | grep mCallState` (0 = idle) before driving the
+UI, and stop entirely if `dumpsys window | grep mCurrentFocus` shows an app the user opened.
+A call came in mid-test during `C-0`; during `A-4` the user was in a game, so the on-device
+look at the new verdict chip was skipped rather than taken. Skipping is the correct outcome
+— say what was not seen, do not work around it.
 
 **Verifying a JS-only change without touching the phone's screen.** A Metro was already
 serving on 8081 (`curl -s localhost:8081/status` → `packager-status:running`; a second
@@ -238,8 +279,8 @@ Demo phases, in priority order. After each one there is still a demo you could g
 - [x] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
 - [>] `D-3` Field trial — 2/10 recorded; unblocked and cheap now, **paused by user decision** — must be resumed before `D-5`
 - [x] `C-0` Capture quality — full-quality still, image upload, preview → viewfinder · **fully verified on device**
-- [ ] `A-0` Make accuracy measurable — `OCRProvider`, per-provider corpus · *no device*
-- [ ] `A-4` Spatial anchor-value association (`T-2.3` pulled forward) · *no device* — **biggest remaining accuracy win** ← **resume here**
+- [x] `A-4` Spatial anchor-value association (`T-2.3` pulled forward) · *no device* — acceptance test passed; thresholds not yet corpus-tuned
+- [ ] `A-0` Make accuracy measurable — `OCRProvider`, per-provider corpus · *no device* ← **resume here**
 - [ ] `D-4` Honest degradation **+ frame admission** — refuse a bad frame before OCR runs (`T-2.7` half pulled forward)
 - [~] `A-1`/`A-2`/`A-3` Server OCR — **dropped**, see `DEMO_PLAN` §2.1
 - [ ] `D-5` Polish and rehearsal — icon, standalone APK, `docs/DEMO_SCRIPT.md`, two run-throughs
@@ -276,7 +317,9 @@ Setup on a fresh clone: `npm install` and `python -m pip install -r requirements
 - **Packet 3 (Bhujialalji Navratna Mix) is photographed, framed well and already in the
   gallery** — see **Now**. It has been uploaded and judged but not recorded, because a
   record reds the suite until a person writes its `expect` block. **Decide whether to record
-  it**; nothing else is needed to.
+  it**; nothing else is needed to. **This is now the cheapest test of `A-4` against a packet
+  the rule was not written on** — its panel reads `NET QUANTITY 150 g` and `₹65.00`, so it
+  will exercise the association path immediately.
 - **Eight more packets for `D-3`, and this is now cheap.** Photograph them with the stock
   camera app 15–20 cm from the panel, then feed each in via the gallery and hit Record.
   LMPC covers *any* packaged commodity — toothpaste, soap, shampoo, tea, salt, atta, oil,
@@ -386,6 +429,15 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-10` **Drive the phone one tap at a time, then look.** The recorded hazard was taps being *dropped*; this session showed they are also *misrouted* — a single tap aimed at *Scan again* also reached the freshly mounted scan screen's controls, and batched follow-up taps dismissed the photo picker before any screenshot saw it. Never batch `tap; sleep; tap` in one command.
 - `2026-09-10` **USER DECISION — `D-3` paused at 2/10 and `A-4` taken next.** Not a cut: `D-3` stays `[>]` and must be finished before `D-5`. Rationale: the remaining packets would re-demonstrate one already-understood defect, and each costs an `expect` block asserting known-wrong behaviour. Fix association first, then collect. Also settled, so it is not re-argued: **`D-3` wants variety, not ten** — both current records are the same product, "ten packets" is a round number the plan never derives, and the real stopping rule is *when a new packet stops finding a new failure*.
 - `2026-09-10` **The app restores a judged verdict on relaunch.** A cold launch landing on the verdict screen is normal; it is not evidence that a capture just ran, and it misled this session for several rounds.
+- `2026-09-10` **`A-4` landed. Stage B pairs by geometry, not by OCR list index.** Two directional neighbourhoods (right-of-anchor on the same row; below-anchor in the same column), scored on proximity plus value-shape strength, with a floor and a runner-up margin. `mobile/src/scan/associate.ts`. Acceptance test from `DEMO_PLAN` §4 A-4 passed.
+- `2026-09-10` **Row membership is a centre-drift test, not a box-overlap test.** Settled by measurement, not preference: on record 002 the correct anchor/value pair overlaps vertically by 24 px out of 123, because the packet was photographed by hand. An overlap test rejects the right answer; the drift between row centres (0.99 anchor-heights) accepts it. Do not "tighten" this back to an overlap test.
+- `2026-09-10` **Every association distance is in multiples of the anchor's own text height, never pixels.** This is what makes the thresholds independent of camera distance and phone. Guarded by a scale-invariance test in `extract.test.ts`; re-expressing any of them in pixels fails the build.
+- `2026-09-10` **A near-tie produces nothing, not a coin flip.** The winning candidate must clear an absolute floor *and* beat the runner-up by a margin, both pack data. Silence is an advisory saying "rescan"; a guess is a confident falsehood about what is printed (P3). Tested both ways — the refusal and the control that still answers.
+- `2026-09-10` **The pre-`A-4` list-order pairing is kept as the degraded path, not deleted.** It runs only when the engine gave the anchor line no bounding box. The extracted value's `association` is null in that case, which is how a reader tells the two apart (P9).
+- `2026-09-10` **`value_may_span_lines` kept its meaning and changed its unit.** It is still the per-field downward reach, but measured in label geometry (`× row_pitch_heights`) rather than in OCR list entries. No pack field was renamed or removed.
+- `2026-09-10` **Record 002 expects `84.9g`, not `84.9 g` as the plan's acceptance line writes it.** The OCR line has no space. A record states what the label was read to say, not a tidied version (P4).
+- `2026-09-10` **The association thresholds are NOT corpus-tuned and may not be described as such.** Sized from typography, then checked against two captures of one packet. `DEMO_PLAN` §4 A-4's "chosen against the field-trial corpus" is the one line of that phase still unsatisfiable, and it stays unsatisfiable until `D-3` has variety (P8).
+- `2026-09-10` **`T-2.3` stays open on the Sprint-2 board.** `A-4` is the demo-scale version in `mobile/` only. The real task is both runtimes, conformance fixtures and gold-set tuning, and shipping the demo version does not close it.
 
 ---
 
@@ -409,6 +461,17 @@ Noticed but deliberately out of scope for now. Do not action without asking.
   reachable by a finger. The upload button shipped, built, bundled and autolinked, and was
   still unusable. Anything bottom- or edge-anchored added from here needs one real tap on
   the Nord 4 before it is called done.
+
+- **The verdict chip's new association text has not been seen on a device.**
+  `net_quantity · B_anchored_adjacent · medium · right 2.62×` renders in
+  `VerdictScreen.tsx`'s `FieldChip`, which is a one-line `numberOfLines={1}` `Text`. On a
+  narrow chip the tail may simply be clipped. Cosmetic, nothing depends on it — look next
+  time the phone is free and the user is not on it.
+
+- **Stage B still takes the first anchor that yields a value, scanning top to bottom.**
+  Within one anchor, competing candidates are now resolved properly; between two anchors for
+  the same field on one label (a promotional pack with two `MRP`s) the upper one still wins
+  by position alone. Not wrong, not principled either. Revisit if a real packet shows it.
 
 - `docs/ARCHITECTURE.md` is listed in plan §18 but no task on the board creates it.
   Assign it before Sprint 6. (`docs/DEMO_SCRIPT.md`, the other half of this item, is now
@@ -484,7 +547,7 @@ Status: `[ ]` todo · `[>]` in progress · `[x]` done · `[!]` blocked · `[~]` 
 
 - [ ] `T-2.1` Text normalisation pass (shared spec, both runtimes) · *plan §7.3*
 - [ ] `T-2.2` Cascade Stage A — direct pattern match · *plan §7.2*
-- [>] `T-2.3` Cascade Stage B — anchor–value spatial association · *plan §7.2* **(highest-value task in the project)** — **pulled forward as demo phase `A-4`**
+- [>] `T-2.3` Cascade Stage B — anchor–value spatial association · *plan §7.2* **(highest-value task in the project)** — **demo-scale version shipped as `A-4`** in `mobile/`; the Sprint-2 task is the real one (both runtimes, conformance fixtures, gold-set tuning) and stays open
 - [ ] `T-2.4` Cascade Stage C — shape-only recovery, advisory-capped · *plan §7.2*
 - [ ] `T-2.5` Lexicons `en` / `hi` · *plan §7.4*
 - [ ] `T-2.6` Barcode decode + GS1 check digit + prefix region · *plan §6.2, §9.1*

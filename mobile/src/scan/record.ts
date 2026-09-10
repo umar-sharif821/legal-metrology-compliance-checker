@@ -120,6 +120,7 @@ export function recordCapture(input: RecordInput): RecordResult {
       sourceText: field.sourceText,
       stage: field.stage,
       confidence: field.confidence,
+      association: field.association,
     })),
     verdict: {
       status: input.verdict.status,

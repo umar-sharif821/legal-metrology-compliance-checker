@@ -114,6 +114,31 @@ export interface CompiledDeclaration {
   readonly severityIfFailed: Severity;
 }
 
+/**
+ * Stage B's geometry, as the interpreter sees it.
+ *
+ * Method parameters, not statutory values — the pack's own note says so, and nothing here
+ * may be cited as law. They live in the pack because tuning them against the gold set must
+ * be a data change, not a code change (P6). Distances are in multiples of the anchor's own
+ * text height; see `scan/associate.ts` for what each one gates.
+ */
+export interface SpatialAssociation {
+  /** Horizontal reach to the right of an anchor, in anchor heights. */
+  readonly maxRightGapHeights: number;
+  /** How far two boxes' vertical centres may drift and still count as one row. */
+  readonly maxRowDriftHeights: number;
+  /** A text row's pitch relative to its glyph height — converts "lines" into distance. */
+  readonly rowPitchHeights: number;
+  /** Least share of the narrower box's width two stacked boxes must have in common. */
+  readonly minColumnOverlap: number;
+  readonly proximityWeight: number;
+  readonly shapeStrengthWeight: number;
+  /** Absolute floor a winning candidate must clear. */
+  readonly minScore: number;
+  /** How far ahead of the runner-up the winner must be, or the answer is nothing (P3). */
+  readonly minMargin: number;
+}
+
 export interface PackMetadata {
   readonly packId: string;
   readonly packVersion: string;
@@ -126,6 +151,7 @@ export interface PackMetadata {
   readonly demoOnly: boolean;
   readonly minOcrLines: number;
   readonly minFieldsFound: number;
+  readonly association: SpatialAssociation;
 }
 
 export interface CompiledPack {
@@ -185,6 +211,42 @@ export function capSeverity(requested: string, status: ProvenanceStatus): Severi
     throw new PackError('declaration.severity_if_failed', `unknown severity '${requested}'`);
   }
   return status === 'REVIEWED' ? requested : 'advisory';
+}
+
+/**
+ * Read Stage B's geometry out of the pack.
+ *
+ * Every value is required — there is no default in this file. A pack that omits one is
+ * refused at startup rather than silently picking a number here, which is the same rule
+ * the rest of the loader follows and the reason none of these thresholds can drift into
+ * code (P6). The bounds are the ones that make the parameter meaningful at all: a
+ * negative reach, an overlap outside 0–1, or two zero weights would each make the
+ * association step incoherent rather than merely badly tuned.
+ */
+function compileAssociation(o: Record<string, unknown>): SpatialAssociation {
+  const where = 'metadata.spatial_association';
+  const at = (key: string, lo: number, hi: number): number => {
+    const v = num(o[key], `${where}.${key}`);
+    if (v < lo || v > hi) {
+      throw new PackError(`${where}.${key}`, `expected a number in [${lo}, ${hi}], got ${v}`);
+    }
+    return v;
+  };
+  const proximityWeight = at('proximity_weight', 0, 1);
+  const shapeStrengthWeight = at('shape_strength_weight', 0, 1);
+  if (proximityWeight + shapeStrengthWeight <= 0) {
+    throw new PackError(where, 'proximity_weight and shape_strength_weight cannot both be zero');
+  }
+  return {
+    maxRightGapHeights: at('max_right_gap_heights', 0, 100),
+    maxRowDriftHeights: at('max_row_drift_heights', 0, 100),
+    rowPitchHeights: at('row_pitch_heights', 0, 100),
+    minColumnOverlap: at('min_column_overlap', 0, 1),
+    proximityWeight,
+    shapeStrengthWeight,
+    minScore: at('min_score', 0, 1),
+    minMargin: at('min_margin', 0, 1),
+  };
 }
 
 function parsePresentation(v: unknown, where: string): ValuePresentation {
@@ -271,6 +333,7 @@ function compile(raw: unknown): CompiledPack {
   const meta = obj(root.metadata, 'metadata');
   const prov = obj(meta.provenance, 'metadata.provenance');
   const thresholds = obj(meta.evidence_thresholds, 'metadata.evidence_thresholds');
+  const assoc = obj(meta.spatial_association, 'metadata.spatial_association');
 
   const status = str(prov.status, 'metadata.provenance.status');
   if (!PROVENANCE_STATUSES.includes(status)) {
@@ -293,6 +356,7 @@ function compile(raw: unknown): CompiledPack {
       thresholds.min_fields_found,
       'metadata.evidence_thresholds.min_fields_found',
     ),
+    association: compileAssociation(assoc),
   };
 
   const shapes = new Map<string, CompiledShape>();

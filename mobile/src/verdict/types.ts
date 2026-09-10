@@ -1,5 +1,5 @@
 import type { Severity } from '../rulepack/pack';
-import type { Box, Confidence, ExtractionStage } from '../scan/types';
+import type { Association, Box, Confidence, ExtractionStage } from '../scan/types';
 
 /**
  * The overall outcome of a scan.
@@ -54,6 +54,13 @@ export interface FieldReport {
   readonly value: string | null;
   readonly stage: ExtractionStage | null;
   readonly confidence: Confidence | null;
+  /**
+   * The geometry that tied a stage-B value to its anchor, or null when geometry was not
+   * what chose it. Carried to the screen because "the value 2.6 text-heights to the right
+   * of the label" is the kind of working an officer can check against the photograph,
+   * where a bare confidence word is not (P7).
+   */
+  readonly association: Association | null;
   readonly box: Box | null;
 }
 

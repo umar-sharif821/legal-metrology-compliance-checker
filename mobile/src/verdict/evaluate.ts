@@ -119,6 +119,7 @@ function buildFieldReports(pack: CompiledPack, byField: ReadonlyMap<string, Extr
       value: hit?.value ?? null,
       stage: hit?.stage ?? null,
       confidence: hit?.confidence ?? null,
+      association: hit?.association ?? null,
       box: hit?.box ?? null,
     });
   }

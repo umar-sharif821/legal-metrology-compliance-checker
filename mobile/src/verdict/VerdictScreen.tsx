@@ -103,8 +103,17 @@ function FieldChip({ field }: { field: FieldReport }) {
         // Stage and confidence are on screen because *how* a value was recovered changes
         // how much weight it deserves. A stage-C hit is a shape with no anchor behind it,
         // and whoever reads this should be able to see that.
+        //
+        // A stage-B hit adds where the value sat relative to its label — `right 2.6×`
+        // means 2.6 of the label's own text heights to its right. That is checkable
+        // against the frozen frame by eye, which is the point of showing it (P7); a
+        // stage-B hit with no geometry beside it was paired by reading order because the
+        // engine gave the anchor no box, and says so by omission (P9).
         <Text style={styles.chipMeta} numberOfLines={1}>
           {field.stage} · {field.confidence}
+          {field.association
+            ? ` · ${field.association.direction} ${field.association.gapHeights}×`
+            : ''}
         </Text>
       )}
     </View>

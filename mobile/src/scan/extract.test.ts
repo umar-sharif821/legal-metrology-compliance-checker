@@ -156,6 +156,98 @@ describe('extraction cascade', () => {
     expect(qty?.stage).toBe('B_anchored_adjacent');
   });
 
+  // ---- A-4 spatial association -------------------------------------------
+  //
+  // `associate.test.ts` pins the geometry itself. These say what the cascade does with
+  // it, on the shapes a real label produces.
+
+  it('reaches a value printed beside its anchor, not just below it', () => {
+    // The defect A-4 exists to fix, stated without the corpus. Measured on record 002:
+    // `NET QTY:` is OCR line 30 and its value `84.9g` is line 49 — nineteen entries away
+    // in reading order, and printed 322 px to its right on the same (slightly tilted)
+    // row. Every number needed to pair them was in the record; list order threw it away.
+    // The interleaved lines are the rest of the panel's two columns, which is exactly
+    // what put nineteen entries between the two in the first place.
+    const result = extract(DEMO_PACK, [
+      { text: 'UNIT SALE PRICE:', box: { x: 921, y: 2477, width: 424, height: 193 } },
+      { text: 'NO. OFSERVES', box: { x: 918, y: 2615, width: 371, height: 174 } },
+      { text: 'PER PACK/ B. NO.:', box: { x: 919, y: 2705, width: 462, height: 141 } },
+      { text: 'MFD & USE BY:', box: { x: 885, y: 2843, width: 428, height: 154 } },
+      { text: 'NET QTY:', box: { x: 886, y: 3013, width: 267, height: 123 } },
+      { text: 'Rs.0.24 /-ER9 o5', box: { x: 1395, y: 2592, width: 425, height: 65 } },
+      { text: '4.2/RP 25U826 #', box: { x: 1405, y: 2653, width: 369, height: 128 } },
+      { text: '25/08/23 & 22/DV27', box: { x: 1419, y: 2764, width: 461, height: 120 } },
+      { text: '84.9g 78 +i)', box: { x: 1475, y: 2868, width: 419, height: 169 } },
+    ]);
+    const qty = result.fields.find((f) => f.fieldId === 'net_quantity');
+    expect(qty?.value).toBe('84.9g');
+    expect(qty?.stage).toBe('B_anchored_adjacent');
+    expect(qty?.association?.direction).toBe('right');
+  });
+
+  it('carries the geometry that chose a value, so a person can check the pairing', () => {
+    // P7: the officer is shown *why* this line was read as the label's value — 2.6 of the
+    // label's own text heights to its right — and can disagree by looking at the frame.
+    const result = extract(DEMO_PACK, [
+      { text: 'NET QTY:', box: { x: 886, y: 3013, width: 267, height: 123 } },
+      { text: '84.9g', box: { x: 1475, y: 2868, width: 419, height: 169 } },
+    ]);
+    const assoc = result.fields.find((f) => f.fieldId === 'net_quantity')?.association;
+    expect(assoc?.direction).toBe('right');
+    expect(assoc?.gapHeights).toBe(2.62);
+    // Nothing else was in either neighbourhood, so there was no runner-up to beat.
+    expect(assoc?.runnerUpScore).toBeNull();
+  });
+
+  it('says nothing when two lines are equally plausible values for one anchor', () => {
+    // A promotional pack with two quantities printed symmetrically about the label. The
+    // geometry does not answer, so neither does the app: a missing declaration is an
+    // advisory saying "rescan", where the wrong one is a confident falsehood (P3).
+    const result = extract(DEMO_PACK, [
+      { text: 'NET QTY:', box: { x: 1000, y: 1000, width: 300, height: 100 } },
+      { text: '250 g', box: { x: 1000, y: 1140, width: 300, height: 100 } },
+      { text: '400 g', box: { x: 1400, y: 1000, width: 300, height: 100 } },
+    ]);
+    expect(result.fields.find((f) => f.fieldId === 'net_quantity')).toBeUndefined();
+  });
+
+  it('does not pair an anchor with a value printed in the next column down', () => {
+    // Directly below in reading order and within reach, but offset far enough sideways
+    // that it belongs to a different column of the panel.
+    const result = extract(DEMO_PACK, [
+      { text: 'NET QTY:', box: { x: 1000, y: 1000, width: 300, height: 100 } },
+      { text: '250 g', box: { x: 1290, y: 1140, width: 400, height: 100 } },
+    ]);
+    expect(result.fields.find((f) => f.fieldId === 'net_quantity')).toBeUndefined();
+  });
+
+  it('reads the same label the same way from a different distance', () => {
+    // Every threshold is in multiples of the anchor's own text height precisely so that
+    // this holds. Two captures of one packet from 15 cm and 30 cm are the same geometry
+    // at different pixel scales, and must not disagree about what the label says.
+    const at = (k: number) =>
+      extract(DEMO_PACK, [
+        { text: 'NET QTY:', box: { x: 886 * k, y: 3013 * k, width: 267 * k, height: 123 * k } },
+        { text: '84.9g', box: { x: 1475 * k, y: 2868 * k, width: 419 * k, height: 169 * k } },
+      ]).fields.find((f) => f.fieldId === 'net_quantity');
+    expect(at(2)?.value).toBe(at(1)?.value);
+    expect(at(2)?.association).toEqual(at(1)?.association);
+  });
+
+  it('falls back to reading order when the engine gave the anchor no box', () => {
+    // Geometry cannot be consulted, so the pre-A-4 behaviour is used rather than the
+    // field being dropped — and `association: null` is how a reader tells that this
+    // pairing rests on list order, not on where anything was printed (P9).
+    const result = extract(DEMO_PACK, [
+      { text: 'NET QTY:', box: null },
+      { text: '250 g', box: null },
+    ]);
+    const qty = result.fields.find((f) => f.fieldId === 'net_quantity');
+    expect(qty?.value).toBe('250 g');
+    expect(qty?.stage).toBe('B_anchored_adjacent');
+    expect(qty?.association).toBeNull();
+  });
+
   it('does not recover a quantity from its shape alone', () => {
     // Measured on record 002: shape-only recovery returned `15.1g`, read out of the
     // FSSAI food-category code in `PROPRIETARY FOOD--NAMKEEN(15.1)`. A number with a
