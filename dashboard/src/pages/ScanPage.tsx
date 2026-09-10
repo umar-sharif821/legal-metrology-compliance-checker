@@ -19,19 +19,35 @@ import {
   IconUpload,
 } from '../components/icons';
 import { analyseImage } from '../lib/api';
+import { warmUpOcr } from '../lib/ocr';
+import type { Stage } from '../lib/engine';
 import { useScans } from '../lib/store';
 import { FRAME_ADMISSION, PACK } from '../lib/rulepack';
 
-const STAGES = [
-  { id: 'admit', label: 'Admitting the frame', detail: 'Print size, panel coverage, cropping' },
-  { id: 'ocr', label: 'Reading text', detail: 'On-device text recognition' },
-  { id: 'extract', label: 'Extracting declarations', detail: 'Anchors, then geometry' },
+/**
+ * The stages, in the order they actually run.
+ *
+ * Note that frame admission is not first. It needs text geometry, so in this build it
+ * runs *after* recognition, inside `evaluate` — the documented deviation in `D-4`. The
+ * list says so rather than showing the order the plan wanted.
+ */
+const STAGES: readonly { id: Stage; label: string; detail: string }[] = [
+  {
+    id: 'ocr',
+    label: 'Reading text',
+    detail: 'Tesseract, in this browser — no image leaves this machine',
+  },
+  {
+    id: 'extract',
+    label: 'Extracting declarations',
+    detail: 'Anchors first, then geometry, then shape alone',
+  },
   {
     id: 'evaluate',
-    label: 'Evaluating the rule pack',
+    label: 'Admitting the frame and evaluating',
     detail: 'Deterministic — no learned parameters',
   },
-] as const;
+];
 
 const MAX_BYTES = 12 * 1024 * 1024;
 
@@ -47,6 +63,10 @@ export function ScanPage() {
   const [stage, setStage] = useState(-1);
   const [error, setError] = useState<string | null>(null);
   const [camera, setCamera] = useState(false);
+
+  // Loading the recogniser takes a second or two. Start it while the operator is still
+  // choosing a file, so the first scan is not the one that pays for it.
+  useEffect(() => warmUpOcr(), []);
 
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
@@ -132,30 +152,36 @@ export function ScanPage() {
     setError(null);
     setStage(0);
 
-    const timers = [
-      setTimeout(() => setStage(1), 420),
-      setTimeout(() => setStage(2), 1150),
-      setTimeout(() => setStage(3), 1750),
-    ];
-
     try {
-      const { data, origin } = await analyseImage(file);
+      // The stage index is driven by the pipeline itself, not by a timer. It was a timer
+      // once, back when nothing was actually running behind it.
+      const { data, origin } = await analyseImage(file, (s: Stage) => {
+        setStage(STAGES.findIndex((x) => x.id === s));
+      });
       addScan(data);
       toast(
         origin === 'live'
-          ? { tone: 'clear', title: 'Analysis complete', body: `Report ${data.id} is ready.` }
+          ? { tone: 'clear', title: 'Read by the backend', body: `Report ${data.id} is ready.` }
           : {
-              tone: 'unknown',
-              title: 'No backend answered',
-              body: 'Showing a record from the bundled sample corpus, not a reading of your image.',
+              tone: 'clear',
+              title: 'Read on this device',
+              body: `${data.fields.filter((f) => f.found).length} of ${data.fields.length} declarations located in your image.`,
             },
       );
       navigate(`/scans/${data.id}`);
-    } catch {
-      setError('The analysis could not be completed. Try again, or re-capture the panel.');
-      toast({ tone: 'violation', title: 'Analysis failed', body: 'Nothing was recorded.' });
+    } catch (e) {
+      // No fabricated record stands in for a failed read. The screen says it failed.
+      setError(
+        e instanceof Error && e.message
+          ? `${e.message} Nothing was recorded — no verdict is offered for an image that could not be read.`
+          : 'That image could not be read. Nothing was recorded, and no verdict is offered for it.',
+      );
+      toast({
+        tone: 'violation',
+        title: 'Could not read that image',
+        body: 'No verdict was produced. Re-capture the declaration panel and try again.',
+      });
     } finally {
-      timers.forEach(clearTimeout);
       setBusy(false);
       setStage(-1);
     }

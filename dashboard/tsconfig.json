@@ -19,6 +19,7 @@
     "baseUrl": ".",
     "paths": {
       "@rulepack": ["../mobile/src/rulepack/demo-lmpc-v0.json"],
+      "@engine/*": ["../mobile/src/*"],
       "@/*": ["./src/*"]
     }
   },

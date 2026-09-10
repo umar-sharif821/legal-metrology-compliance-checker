@@ -399,22 +399,8 @@ export const SAMPLE_SCANS: readonly Scan[] = (() => {
 export const SAMPLE_OFFICERS = OFFICERS;
 export const SAMPLE_DISTRICTS = DISTRICTS;
 
-/**
- * The record a live "Analyse" produces when no backend answers.
- *
- * Flagged `sample` so the report screen can state plainly that the verdict came from
- * the bundled corpus and not from the image the user just uploaded. Showing a
- * fabricated verdict as if it had been read off the photograph is precisely the
- * failure mode P9 exists to prevent.
- */
-export function sampleScanFor(imageUrl: string | null, seed: number): Scan {
-  const rand = lcg(seed);
-  const base = buildScan(900 + (seed % 90), rand, Date.now());
-  return {
-    ...base,
-    id: 'SC-' + String(Date.now() % 100000).padStart(5, '0'),
-    capturedAt: new Date().toISOString(),
-    source: 'upload',
-    imageUrl,
-  };
-}
+// `sampleScanFor` used to live here: it fabricated a record for an uploaded image so the
+// upload flow would always "work". It was deleted rather than fixed. Pairing a real
+// photograph with an invented verdict is the one thing this project must never do, and a
+// helper that makes it easy is a loaded gun in the drawer. Uploads go through
+// `lib/engine.ts`, which reads the image or fails out loud.

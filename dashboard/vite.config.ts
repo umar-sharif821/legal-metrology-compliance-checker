@@ -14,6 +14,13 @@ import tailwindcss from '@tailwindcss/vite';
 const rulepack = fileURLToPath(
   new URL('../mobile/src/rulepack/demo-lmpc-v0.json', import.meta.url),
 );
+
+// The rule ENGINE, not just the pack. `extract`, `evaluate` and `admit` are pure
+// TypeScript with no React Native imports — the same functions the phone runs and the
+// same ones the test suite covers — so the browser runs them directly rather than
+// re-implementing them. A second implementation would be a second thing to be wrong.
+const engine = fileURLToPath(new URL('../mobile/src', import.meta.url));
+
 const repoRoot = fileURLToPath(new URL('..', import.meta.url));
 
 export default defineConfig({
@@ -21,6 +28,7 @@ export default defineConfig({
   resolve: {
     alias: {
       '@rulepack': rulepack,
+      '@engine': engine,
       '@': fileURLToPath(new URL('./src', import.meta.url)),
     },
   },

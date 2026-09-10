@@ -29,21 +29,42 @@ npm run preview   # serve the production bundle
 | `/scans/:id` | Compliance report — evidence, declarations, per-rule checks, printable notice |
 | `/rulepack` | The active rule pack, its review status, and every clause's verification state |
 
-## Sample data, and why it says so on screen
+## What is real, and what is sample
 
-The FastAPI backend is Sprint 3 work and does not exist yet. Every call in
-`src/lib/api.ts` tries the real endpoint first with a 2.5 s timeout, then falls back to
-the bundled corpus in `src/lib/mock.ts`.
+These are two different things and the app keeps them apart, because conflating them
+once produced a genuinely dangerous screen.
 
-The fallback is never silent. The header shows **Sample data** or **Live backend**, each
-record carries `sample: true`, and the report says the record came from the corpus. A
-demo that cannot tell you whether it just talked to a server will eventually mislead the
-person watching it.
+**Analysing an image is real.** It runs the project's actual engine — `extract`,
+`evaluate` and `admit` from `mobile/src/`, the same functions the phone runs and the same
+ones the root test suite covers — over real OCR from Tesseract, in your browser. Nothing
+is uploaded anywhere. If the image cannot be read, the screen says the read failed and no
+verdict is produced. **There is no path that invents a verdict for a real photograph.**
 
-**Nothing on any screen is a measurement.** The stage timings are indicative values, not
-recorded ones, and the screen says so. Accuracy figures for this project come from
-`eval/`, latency from recorded per-stage timings on the benchmark device — neither is
-wired in here.
+An earlier version had one. With no backend it answered an upload by picking a random
+record from the sample corpus and attaching the user's photo to it — a Verka lassi packet
+came back as Santoor toilet soap, with evidence boxes drawn over the real image. That
+path is deleted, and `sampleScanFor`, the helper that made it easy, is deleted with it.
+
+**The scan repository is sample.** The 148 historical inspections behind Overview and the
+Scan explorer come from `src/lib/mock.ts`, because the FastAPI backend is Sprint 3 work
+and does not exist. The header says **Sample repository**, and every record carries
+`sample: true`. That is a claim about nobody's photograph, which is why the fallback is
+acceptable there and not on an upload.
+
+**Nothing anywhere is an accuracy figure.** Stage timings are measured on this machine
+for this image, and are labelled indicative rather than benchmark. Accuracy for this
+project comes from `eval/`; neither is wired in here.
+
+### Offline by construction
+
+`public/tesseract/` holds the worker, the wasm cores and the English language data — 30 MB,
+committed. Nothing is fetched from a CDN, so the analysis works with the network unplugged
+(P2) and cannot fail because a venue's wifi is bad.
+
+Only the `-lstm` wasm variants are vendored, which is what tesseract.js selects by default.
+It picks one at runtime by CPU feature detection, so all three are present: plain, `simd`
+and `relaxedsimd`. Deleting the one your browser happens not to use will break somebody
+else's machine — this was found the hard way, as a `failed to load` error mid-scan.
 
 ## Where the legal content comes from
 

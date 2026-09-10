@@ -208,14 +208,21 @@ export function ReportPage() {
             <div className="flex flex-wrap items-center gap-2">
               <span className="font-mono text-[12px] text-ink-500">{scan.id}</span>
               <StatusBadge status={scan.status} />
-              {scan.sample && (
+              {scan.sample ? (
                 <Pill tone="unknown" title="This record came from the bundled sample corpus.">
                   sample record
+                </Pill>
+              ) : (
+                <Pill
+                  tone="clear"
+                  title="This verdict was produced by reading the image on this machine. Nothing was uploaded anywhere."
+                >
+                  read on this device
                 </Pill>
               )}
             </div>
             <h2 className="mt-2 text-[19px] leading-tight font-semibold tracking-tight text-ink-900">
-              {scan.brand} — {scan.commodity}
+              {scan.brand ? `${scan.brand} — ${scan.commodity}` : scan.commodity}
             </h2>
             <p className="mt-1.5 max-w-2xl text-[12.5px] leading-relaxed text-ink-500">
               {meta.blurb}
@@ -275,7 +282,7 @@ export function ReportPage() {
               title="Evidence"
               hint={
                 scan.imageUrl
-                  ? 'The capture, with each located declaration outlined'
+                  ? 'Your image, with each located declaration outlined'
                   : 'Drawn from the sample record — not a photograph'
               }
               action={

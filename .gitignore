@@ -48,3 +48,6 @@ eval/out/
 
 # Typecheck output for test projects (never shipped)
 .tscache/
+
+# tesseract.js caches language data into the working directory when run under Node
+/dashboard/eng.traineddata

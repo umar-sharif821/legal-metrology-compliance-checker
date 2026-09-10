@@ -1,23 +1,33 @@
 /**
  * The backend seam.
  *
- * The FastAPI service is Sprint 3 work and is not built. Every call here tries the
- * real endpoint first with a short timeout, then falls back to the bundled sample
- * corpus so the application is fully demonstrable with nothing running behind it.
+ * The FastAPI service is Sprint 3 work and is not built, so the two calls here behave
+ * very differently, and the difference matters:
  *
- * The fallback is never silent. `live: false` propagates to the screen, which says
- * plainly that the record came from the sample corpus. A demo that cannot tell you
- * whether it just talked to a server is a demo that will eventually mislead the
- * person watching it (P9).
+ *  - **Analysing an image never falls back to invented data.** It runs the real engine
+ *    in this browser (`lib/engine.ts`) and, if that fails, it throws. An earlier version
+ *    of this file answered an upload with a random record from the sample corpus and
+ *    attached the user's own photograph to it. On a Verka lassi packet it reported
+ *    Santoor toilet soap, with evidence boxes drawn on the real image. A toast saying
+ *    "sample data" does not undo that: the screen was asserting a reading of a
+ *    photograph it had never looked at. That path is gone and must not come back.
+ *
+ *  - **Listing past scans does fall back**, to the bundled corpus, because a repository
+ *    of historical inspections is not a claim about anything the user just handed over.
+ *    It is still labelled everywhere it appears.
+ *
+ * The rule underneath both: never pair a real artefact with a fabricated conclusion (P9).
  */
-import { SAMPLE_SCANS, sampleScanFor } from './mock';
+import { SAMPLE_SCANS } from './mock';
+import { analyseInBrowser, type Stage } from './engine';
 import { DECLARATIONS_BY_ID, PACK } from './rulepack';
 import { formatDateTime } from './format';
 import type { Scan } from './types';
 
 const TIMEOUT_MS = 2500;
 
-export type Origin = 'live' | 'sample';
+/** Where a record came from. `device` means this browser actually read the image. */
+export type Origin = 'live' | 'sample' | 'device';
 
 export interface Result<T> {
   readonly data: T;
@@ -34,9 +44,22 @@ async function withTimeout(input: RequestInfo, init?: RequestInit): Promise<Resp
   }
 }
 
-/** `POST /api/scan` — multipart image upload, returns extracted fields + verdict. */
-export async function analyseImage(file: File): Promise<Result<Scan>> {
+/**
+ * `POST /api/scan` — multipart upload — with on-device analysis as the real path.
+ *
+ * The server is tried first because when it exists it will do this better, with a
+ * stronger engine and the applicability gates this pack does not model. Until then the
+ * browser does the work itself, with the same `extract` and `evaluate` the phone runs.
+ *
+ * There is no third branch. If neither can read the image, this throws and the screen
+ * reports a failed read.
+ */
+export async function analyseImage(
+  file: File,
+  onStage?: (stage: Stage) => void,
+): Promise<Result<Scan>> {
   const objectUrl = URL.createObjectURL(file);
+
   try {
     const body = new FormData();
     body.append('image', file);
@@ -45,10 +68,9 @@ export async function analyseImage(file: File): Promise<Result<Scan>> {
     const data = (await res.json()) as Scan;
     return { data: { ...data, imageUrl: objectUrl, sample: false }, origin: 'live' };
   } catch {
-    // Deliberate: the demo continues, and says where the record came from.
-    await new Promise((r) => setTimeout(r, 1500 + Math.random() * 900));
-    const seed = file.size + file.name.length * 7919;
-    return { data: sampleScanFor(objectUrl, seed), origin: 'sample' };
+    // No server. Read it here — and let any failure propagate to the caller.
+    const data = await analyseInBrowser(file, objectUrl, onStage);
+    return { data, origin: 'device' };
   }
 }
 

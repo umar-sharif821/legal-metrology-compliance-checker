@@ -252,7 +252,7 @@ export function ScansPage() {
                   <td className="px-5 py-3">
                     <Link to={`/scans/${s.id}`} className="block">
                       <span className="block text-[13px] font-medium text-ink-900 group-hover:text-navy-600">
-                        {s.brand} — {s.commodity}
+                        {s.brand ? `${s.brand} — ${s.commodity}` : s.commodity}
                       </span>
                       <span className="mt-0.5 block text-[11.5px] text-ink-500">
                         <span className="font-mono">{s.id}</span> · {s.category} · {s.district}
@@ -318,7 +318,7 @@ export function ScansPage() {
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <p className="truncate text-[13px] font-medium text-ink-900">
-                        {s.brand} — {s.commodity}
+                        {s.brand ? `${s.brand} — ${s.commodity}` : s.commodity}
                       </p>
                       <p className="mt-0.5 text-[11.5px] text-ink-500">
                         <span className="font-mono">{s.id}</span> · {s.district}

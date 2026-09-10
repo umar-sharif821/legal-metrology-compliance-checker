@@ -144,8 +144,8 @@ export function Layout({ children }: { children: ReactNode }) {
               }`}
               title={
                 origin === 'live'
-                  ? 'Records are coming from the backend.'
-                  : 'No backend answered. Every figure on screen is computed from the bundled sample corpus.'
+                  ? 'The scan repository is coming from the backend.'
+                  : 'No backend answered, so the scan repository below is the bundled sample corpus. It says nothing about an image you analyse here — those are read on this device.'
               }
             >
               <span
@@ -153,7 +153,11 @@ export function Layout({ children }: { children: ReactNode }) {
                   origin === 'live' ? 'bg-clear-mark' : 'bg-unknown-mark'
                 }`}
               />
-              {loading ? 'Connecting…' : origin === 'live' ? 'Live backend' : 'Sample data'}
+              {loading
+                ? 'Connecting…'
+                : origin === 'live'
+                  ? 'Live repository'
+                  : 'Sample repository'}
             </span>
           </div>
 
