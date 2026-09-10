@@ -69,19 +69,24 @@ const CROP_MARGIN = 0.12;
 let workerPromise: Promise<Worker> | null = null;
 
 /**
- * Page segmentation mode 6 — "a single uniform block of text".
+ * Both page-segmentation modes are tried, because neither wins on its own.
  *
- * The default (3, fully automatic) assumes a document page and tries to find columns.
- * A declaration panel is not a page, and on photographs the column finder either mis-splits
- * the panel or, on an upscaled image, gives up and returns nothing at all. Measured:
+ * `AUTO` (Tesseract's default) assumes a document page and hunts for columns. `SINGLE_BLOCK`
+ * assumes one uniform block of text. Which is right depends entirely on the packet:
  *
- *     benchmark, upscaled  psm 3 -> 0 lines            psm 6 -> 6/10 target strings
- *     specimen 3           psm 3 -> 0 lines, 0/7       psm 6 -> 5 lines, 3/7
- *     specimens 1 and 2    psm 3 -> 7/7 and 4/7        psm 6 -> same, one extra line each
+ *   - A single printed panel is one block. On the hard benchmark, upscaled, AUTO returned
+ *     ZERO lines while SINGLE_BLOCK returned 6/10 target strings; on specimen 3 AUTO found
+ *     nothing and SINGLE_BLOCK found three declarations.
+ *   - A real snack packet is not. A Bhujialalji Navratna Mix pack carries a dense
+ *     nutrition table on the left and the declarations panel on the right — two genuine
+ *     columns. Forcing SINGLE_BLOCK there merged them and cost a declaration that AUTO
+ *     had located.
  *
- * Better or equal everywhere tested, and dramatically better on the hard cases.
+ * Choosing one mode was a mistake made on synthetic labels that only ever had one block.
+ * Both now run, and the caller keeps whichever reading located more declarations — the
+ * decision is made per image, by measurement, rather than once by assumption.
  */
-const PAGE_SEG_SINGLE_BLOCK = PSM.SINGLE_BLOCK;
+const SEG_MODES = [PSM.AUTO, PSM.SINGLE_BLOCK] as const;
 
 function getWorker(): Promise<Worker> {
   workerPromise ??= createWorker('eng', 1, {
@@ -89,9 +94,6 @@ function getWorker(): Promise<Worker> {
     corePath: '/tesseract/',
     langPath: '/tesseract',
     gzip: true,
-  }).then(async (worker) => {
-    await worker.setParameters({ tessedit_pageseg_mode: PAGE_SEG_SINGLE_BLOCK });
-    return worker;
   });
   return workerPromise;
 }
@@ -300,6 +302,12 @@ export async function recognise(file: File): Promise<Recognised> {
     });
 
     const candidates: Candidate[] = [build(first, r1.data, 1)];
+    for (const psm of SEG_MODES.slice(1)) {
+      await worker.setParameters({ tessedit_pageseg_mode: psm });
+      const alt = await worker.recognize(first.canvas, {}, { blocks: true, text: true });
+      candidates.push(build(first, alt.data, 1));
+    }
+    await worker.setParameters({ tessedit_pageseg_mode: SEG_MODES[0] });
 
     // --- pass two: re-read the located panel, from the original pixels ---
     if (extent && textFraction > MIN_CROP_AREA && textFraction < CROP_WHEN_TEXT_BELOW) {
@@ -316,8 +324,13 @@ export async function recognise(file: File): Promise<Recognised> {
       rect.h = Math.min(rect.h, full.h - rect.y);
 
       const second = render(img, rect, PASS_2_EDGE);
-      const r2 = await worker.recognize(second.canvas, {}, { blocks: true, text: true });
-      candidates.push(build(second, r2.data, (rect.w * rect.h) / (full.w * full.h)));
+      const fraction = (rect.w * rect.h) / (full.w * full.h);
+      for (const psm of SEG_MODES) {
+        await worker.setParameters({ tessedit_pageseg_mode: psm });
+        const r2 = await worker.recognize(second.canvas, {}, { blocks: true, text: true });
+        candidates.push(build(second, r2.data, fraction));
+      }
+      await worker.setParameters({ tessedit_pageseg_mode: SEG_MODES[0] });
     }
 
     return { candidates };

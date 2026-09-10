@@ -140,24 +140,43 @@ export async function analyseInBrowser(
   const { candidates } = await recognise(file);
 
   onStage?.('extract');
-  // Best of N readings, ranked by how many declarations each located.
+  onStage?.('evaluate');
+  // Best of N readings — the image is read several ways and one reading is kept.
   //
-  // Neither the whole frame nor the panel crop wins reliably — measured on the same
-  // scene, the frame kept the manufacturer and date while the crop kept consumer care.
-  // Extraction is about a millisecond, so running it over both and keeping the better
-  // costs nothing and removes the coin-flip. Ties go to the earlier candidate, which is
-  // the whole frame: when a crop locates no more than the original, there is no reason
-  // to show the reader a picture that is not the one they handed over.
+  // Each candidate is a genuine read: the whole frame and the located panel, each at both
+  // page-segmentation modes. None is favoured a priori because none wins reliably. On one
+  // scene the whole frame kept the manufacturer and date while the crop kept consumer
+  // care; on a two-column packet the default segmentation beat single-block, and on a
+  // single upscaled panel the reverse.
+  //
+  // The ranking is (produced a verdict, then declarations located), and the first term
+  // matters more than it looks. Ranking on declarations alone picked a reading that
+  // located four of six and was then refused for print size — it had split the packet's
+  // nutrition table into seventeen lines of fine print, dragging the median line height
+  // under the floor, while another reading of the same image passed the frame checks
+  // comfortably. Preferring a reading that survived its own quality checks is not
+  // shopping for a better answer: every candidate is measured by the same admission, and
+  // if none passes, the refusal stands.
+  //
+  // Extraction and evaluation are pure and cost about a millisecond each against a second
+  // for recognition, so scoring every candidate properly is nearly free.
   const scored = candidates.map((c) => {
     const extraction = extract(DEMO_PACK, c.frame.lines);
-    return { c, extraction, found: extraction.fields.length };
+    const v = evaluate(DEMO_PACK, c.frame, extraction);
+    return {
+      c,
+      extraction,
+      verdict: v,
+      found: extraction.fields.length,
+      conclusive: v.status !== 'INSUFFICIENT_EVIDENCE',
+    };
   });
-  const best = scored.reduce((a, b) => (b.found > a.found ? b : a));
-  const { c: chosen, extraction } = best;
+  const best = scored.reduce((a, b) => {
+    if (a.conclusive !== b.conclusive) return a.conclusive ? a : b;
+    return b.found > a.found ? b : a;
+  });
+  const { c: chosen, verdict } = best;
   const { frame, width, height } = chosen;
-
-  onStage?.('evaluate');
-  const verdict = evaluate(DEMO_PACK, frame, extraction);
 
   // When only a region was read, that region is what the report shows and what the
   // evidence boxes are relative to. Showing the original beside boxes measured on a
