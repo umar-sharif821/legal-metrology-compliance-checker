@@ -3,7 +3,7 @@
 > Single source of truth for project state. Updated by `/handoff`, read by `/pickup`.
 > Keep it terse. This file is read in full every session — every line costs tokens.
 
-**Last updated:** 2026-09-10 · **Sessions completed:** 7 · **Current sprint:** 1 (paused for the demo detour)
+**Last updated:** 2026-09-10 · **Sessions completed:** 8 · **Current sprint:** 1 (paused for the demo detour)
 
 ---
 
@@ -33,31 +33,41 @@
 > All three are cheaper than swapping engines would have been, and `A-4` fixes the largest
 > defect the field trial found, which was never an OCR failure.
 
-**Current demo phase:** `D-3` — field trial
-**Status:** in progress — tooling done, **all four measured defects fixed**, corpus green;
-**2 of 10 packets recorded**
-**Blocked on:** the user has only one packet. `D-3` cannot finish without eight more.
+**Current demo phase:** `C-0` — capture quality · **done**, one item unverified (below)
+**Status:** built, all nine gates green, capture path verified on the Nord 4.
+**Unverified:** the **upload** path. It builds, autolinks and is in the served bundle, but
+the picker was never opened on the device — the user picked their phone up mid-test and
+driving it further would have been rude. **This is a one-tap check, not a rebuild:** open
+the app, tap *Use a photo from the gallery*, pick any photo. If it judges, `C-0` is fully
+closed; if it throws, the message lands in the HUD.
 
-**Next phase to actually start:** **`C-0`** — capture quality (`DEMO_PLAN` §4). The
-cheapest accuracy in the project and **it unblocks `D-3`**: with image upload, ten packets
-can be photographed with the stock camera app in five minutes and fed in afterwards,
-instead of being held in front of a live scan. Its first change costs nothing at all —
-stop passing `skipProcessing: true` on the frame that gets judged, which also fixes the
-parked "frozen frame renders sideways" bug.
+**Next phase to actually start:** back to **`D-3`** — it is now unblocked. Photograph ten
+packets with the stock camera app, then feed each in with *Use a photo from the gallery*
+and hit **Record**. `mobile/field-trial/README.md` has the flow and the `source` table.
 
-Then `A-0` (measure it) and `A-4` (spatial association, `T-2.3` pulled forward). **Nothing
-is blocked on anyone** — no key, no card, no Docker, no laptop, no GPU.
+Then `A-0` (measure it) and `A-4` (spatial association). **Nothing is blocked on anyone.**
 
-`C-0` matters more than it sounds: every capture measured so far has been a
-`skipProcessing` live frame, so **ML Kit has never once been handed a proper photo**.
-Nobody knows what it can actually do, including whether record 002's
-`INCL. OF ALL TAXES` → `NCL. OF 42L TAYES` was ever the engine's fault.
+**What `C-0` measured, and it is the phase's whole result.** Same packet, same scene,
+seconds apart on the Nord 4 (Bhujialalji Navratna Mix, packet 3):
 
-**All nine gates are green.** `npm test` was red on four `corpus.test.ts` failures from the
-first field trial; those are the four defects fixed this session. Both records
-now replay to the verdict their reviewer expected. The next packet recorded will red the
-suite again until somebody writes its `expect` block — that is the mechanism working, not
-a breakage.
+| | Viewfinder pass (`skipProcessing`) | Full-quality capture |
+|---|---|---|
+| Lines recognised | 32, and on a second pass **0** | **111** |
+| Capture / OCR | 335 ms / 727 ms | 785 ms / 842 ms |
+
+**3.5× the text for about half a second more**, ~1.6 s shutter to verdict. ML Kit was never
+the binding constraint — the frame was. The zero-line pass is the sharper number: the panel
+filled the frame and the preview frame was simply too blurry to read, which is exactly what
+`D-4`'s frame admission exists to catch.
+
+**It did not fix extraction, and that is the finding to carry into `A-4`.** That 111-line
+capture still located 2 of 6 declarations and **both were wrong** — `manufacturer:
+"gls flims Industries"`, `commodity_name: "of india"` — while `150 g`, `₹65.00` and
+`15JUL.2026` sat legibly in the frame, unfound. Recognition is no longer the bottleneck;
+association is. `A-4` is now backed by evidence rather than argument.
+
+**All nine gates are green** (78 TS tests, 34 pytest). The next packet recorded will red
+the suite until somebody writes its `expect` block — the mechanism working, not a breakage.
 
 ### The corpus and how it works
 
@@ -137,8 +147,24 @@ fixed code. They are a log of what the device did at record time — a measureme
   settle, screenshot, then tap from the screenshot.
 
 Rebuild and run with `cd mobile && npx expo run:android --device CPH2661`. **The device
-name is `CPH2661`, not the adb serial.** Incremental Gradle is ~24 s; the JS bundle ~9 s.
-JS edits reload over Metro with no rebuild — this session's changes needed none.
+name is `CPH2661`, not the adb serial.** Incremental Gradle is ~24 s; a new native module
+costs ~2m 50s. JS edits reload over Metro with no rebuild.
+
+**`expo run:android` launches the dev client at the LAN IP (`10.53.28.254:8081`), which the
+phone cannot reach — Wi-Fi is off, it is on mobile data over USB.** It hangs on "Loading
+from …" forever. `adb reverse tcp:8081 tcp:8081` is already set, so relaunch by hand at
+localhost instead:
+`adb shell am start -a android.intent.action.VIEW -d "exp+lm-scan-demo://expo-development-client/?url=http%3A%2F%2Flocalhost%3A8081"`
+First bundle after a native change takes ~3 min; `curl` the bundle once to force Metro to
+build it, then launch, or the app sits on a white screen looking broken.
+
+**Git Bash rewrites `/sdcard/...` into `C:/Program Files/Git/sdcard/...` for `adb push` and
+`adb shell`.** Prefix those commands with `MSYS_NO_PATHCONV=1` or the file lands nowhere and
+the error is misleading (it prints both a failure and "1 file pushed").
+
+**The phone is the user's daily driver.** A call came in mid-test this session; check
+`adb shell dumpsys telephony.registry | grep mCallState` (0 = idle) before driving the UI,
+and stop entirely if `dumpsys window | grep mCurrentFocus` shows an app the user opened.
 
 **Verifying a JS-only change without touching the phone's screen.** A Metro was already
 serving on 8081 (`curl -s localhost:8081/status` → `packager-status:running`; a second
@@ -158,9 +184,8 @@ Demo phases, in priority order. After each one there is still a demo you could g
 - [x] `D-0` Foundations — scaffold, Gradle build green, rule pack, evaluator, unit tests · *no device*
 - [x] `D-1` Shell on the phone — one still capture reaches ML Kit and prints text
 - [x] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
-- [>] `D-3` Field trial — 2/10 packets recorded; tooling done, all four measured defects
-      fixed and the corpus green; blocked on packets
-- [ ] `C-0` Capture quality — full-quality still, image upload, preview → viewfinder · **unblocks `D-3`** ← **start here**
+- [>] `D-3` Field trial — 2/10 packets recorded; **unblocked by `C-0`** — collect via gallery upload ← **resume here**
+- [x] `C-0` Capture quality — full-quality still, image upload, preview → viewfinder · upload path unverified on device
 - [ ] `A-0` Make accuracy measurable — `OCRProvider`, per-provider corpus · *no device*
 - [ ] `A-4` Spatial anchor-value association (`T-2.3` pulled forward) · *no device* — **biggest remaining accuracy win**
 - [ ] `D-4` Honest degradation **+ frame admission** — refuse a bad frame before OCR runs (`T-2.7` half pulled forward)
@@ -196,19 +221,19 @@ Setup on a fresh clone: `npm install` and `python -m pip install -r requirements
   `T-1.11`, but it is off the critical path.
 - **Keep the Nord 4 connected.** `D-3`…`D-5` all need it. Device name `CPH2661`,
   serial `bac3856a`, camera permission already granted to `com.sih26034.lmscan`.
-- **A second packet was in front of the camera this session and was not recorded.** The
-  smoke-test launch caught a live pass over what looks like a Bhujialalji (Bikaner) bhujia
-  packet: 118 OCR lines, **0 of 6 declarations located**, `INSUFFICIENT_EVIDENCE`. Not
-  recorded, for two reasons — the frame was a poor one (panel lying sideways, half the
-  shot bedsheet), and an unreviewed record reds the suite until a person writes its
-  `expect` block, which is the user's call, not this session's. **If that packet is still
-  to hand, capture it properly and hit Record — it is packet 3 of 10.**
-- **Eight more packets for `D-3`.** The user has one (Lay's bhujia namkeen, recorded
-  twice). **This is the blocker.** LMPC covers *any* packaged commodity, so toothpaste, soap,
-  shampoo, tea, salt, atta, oil, biscuits, noodles, a medicine box all qualify — variety is
-  the point, since the wording varies (`Net Wt.`/`Net Qty`/`Quantity`, g/ml/kg/L, MRP
-  phrasings, one- vs two-column panels). Ten captures of one packet would tune the pack to
-  that packet.
+- **Confirm the upload path works** — one tap: open the app, *Use a photo from the
+  gallery*, pick anything. It was built and bundled but never opened on the device. That is
+  the only thing standing between `C-0` and fully closed.
+- **The Bhujialalji Navratna Mix packet was captured this session but deliberately not
+  recorded.** The framing was poor (whole packet in shot, declarations panel small) and a
+  record reds the suite until a person writes its `expect` block — the user's call. **It is
+  packet 3 of 10; photograph the panel properly and upload it.**
+- **Eight more packets for `D-3`, and this is now cheap.** Photograph them with the stock
+  camera app 15–20 cm from the panel, then feed each in via the gallery and hit Record.
+  LMPC covers *any* packaged commodity — toothpaste, soap, shampoo, tea, salt, atta, oil,
+  biscuits, noodles, a medicine box all qualify. **Variety is the point**, since the wording
+  varies (`Net Wt.`/`Net Qty`/`Quantity`, g/ml/kg/L, MRP phrasings, one- vs two-column
+  panels). Ten captures of one packet would tune the pack to that packet.
 - Still wanted: a packet with a declaration *genuinely* present but defective. The evidence
   highlight is now proven (see **Now**), but on a *false* flag; a real defect would be better.
 - A Legal Metrology officer / law student contact for the rule-pack review (plan §4,
@@ -237,6 +262,12 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-10` `.gitattributes` forces `eol=lf` repo-wide. Windows host, Linux CI — without it Prettier's `endOfLine: lf` check fails on a fresh Windows clone.
 - `2026-09-10` Prettier does not touch `docs/`, `.claude/` or any `*.md`. The plan uses custom `~~~t|` table and `:::` admonition syntax that Prettier mangles.
 - `2026-09-10` CI gates that cannot run yet exist as jobs emitting a GitHub `::notice::` NOT IMPLEMENTED and exiting 0 — never omitted, never silently green (P9). Each guards on the file it needs and turns into a hard `::error::` failure the moment that file exists without its gate wired. So `T-1.2` creating the schema **will red the `rulepack-schema` job** until the validator step is written in the same task. Same for `T-1.3` → `unreviewed-thresholds`, `T-1.9` → `conformance`, `T-2.9` → `accuracy-regression`.
+- `2026-09-10` **The live preview never produces a verdict.** It is a viewfinder — fast, `skipProcessing`, framing feedback only. A verdict rests on a deliberate full-quality capture or an uploaded photo. Enforced by the type system, not convention: `LiveCapture` is `source: 'viewfinder'`, which `JudgedCapture` excludes.
+- `2026-09-10` Every capture declares a `source` (`viewfinder` / `still` / `upload`) and it is written into the field-trial record. The three are different measurements of a label and a corpus that mixes them silently cannot be compared (P8).
+- `2026-09-10` `timings.captureMs` is `null` for an upload, never `0` — there is no shutter this app timed (P4). Record schema bumped to `lmscan.field-trial/2`; records 001/002 were annotated `"source": "viewfinder"` in place, no line/box/timing touched, so the corpus carries exactly one schema.
+- `2026-09-10` Anything that wants the camera goes through `useScanLoop`'s `exclusive()`, which suspends the loop and awaits the pass in flight. "One capture in flight at a time" now holds for the whole app, not just the loop.
+- `2026-09-10` `expo-image-picker` is installed but **deliberately not listed in `app.json` plugins**. Its Android half only adds `RECORD_AUDIO` and crop-tool colours; `launchImageLibraryAsync` uses the Android photo picker and needs no runtime permission. Registering it would make the app request a microphone it never uses.
+- `2026-09-10` Beat 3 is no longer "verdict in under a second". Capture→verdict is ~1.6 s measured, and the demo says so. What survives is the claim that mattered: the image on screen is exactly the image the verdict was read from.
 - `2026-09-10` Rule-pack schema is Draft 2020-12, `schema_version: "2.0"`, in `rulepack/schema/rulepack.schema.json`. Top-level keys: `metadata`, `fields`, `applicability_gates`, `declarations`, `geometry_rules`, `tables`, `lexicons`.
 - `2026-09-10` The schema is the interpreter's vocabulary as well as the data contract: `check.kind`, `effect.kind` and predicate ops are **closed enums**, and every params object is closed. Adding a check kind is a deliberate schema change made together with both evaluators plus a conformance fixture. That friction is intended.
 - `2026-09-10` A pack declares its own `fields` vocabulary; rules reference field ids from it. No field name is hard-coded in either runtime (P6).
@@ -339,12 +370,18 @@ Noticed but deliberately out of scope for now. Do not action without asking.
   reviewer") but no task creates it. Fold it into `T-1.3`, which writes the first pack.
 - **The `Record` control ships in the app.** `D-5` must decide whether the pitch shows a
   debug control. Removing it is one import and one element in `VerdictScreen.tsx`.
-- **The frozen frame sometimes renders sideways.** With `skipProcessing` the EXIF
-  orientation varies with how the phone was tilted at the shutter, so one capture displays
-  upright and the next lies on its side. **The boxes are correct either way** — `<Image>`
-  and ML Kit honour the same tag, so they never disagree with each other. Cosmetic only;
-  fix in `D-5` polish, or drop `skipProcessing` in `D-3` and pay the rotate-and-rescale
-  latency. Do not "fix" it by rotating the overlay — that reintroduces the bug D-2 removed.
+- ~~**The frozen frame sometimes renders sideways.**~~ **RESOLVED by `C-0`** — the judged
+  image is now a processed still or an uploaded photo, both of which have settled EXIF, so
+  the orientation no longer varies. Verified upright on the device.
+- **`mobile/` has 10 moderate npm advisories; the root has 0.** All ten are one `uuid`
+  advisory reaching `@expo/config-plugins` through `xcode` — Expo's iOS project writer,
+  which this Android-only app never runs, and dev-time only. Pre-dates `C-0`; the picker
+  added none. The `npm audit` gate runs at the root and is green. Leave it unless Expo
+  ships a fix; do not `audit fix --force` a working native toolchain before a demo.
+- **The viewfinder can report 0 lines on a well-framed panel.** Measured this session: the
+  panel filled the frame and the `skipProcessing` preview frame was too blurry to read.
+  Harmless now that the viewfinder no longer judges, but it is the exact case `D-4`'s frame
+  admission must catch, and the coach hint should say "hold still" rather than "get closer".
 - ~~`commodity_name` extracted `"may differ."`~~ / ~~`"s (6779%) (rice meal (44%),"`~~
   **RESOLVED** — the boundary-aware anchor match (Now item 1) closes the `cereal products`
   case, pinned by a regression test. One caveat kept deliberately: a line reading

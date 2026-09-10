@@ -1,10 +1,14 @@
 /**
  * The field-trial control — phase `D-3` only.
  *
- * Names the packet in front of the camera and writes the frozen frame's record to disk
- * (`record.ts`). Deliberately its own file and its own strip of screen, so that when
- * `D-5` decides the pitch should not show a debug control, removing it is deleting one
- * import and one element rather than untangling it from the verdict screen.
+ * Names the packet in front of the camera and writes the judged image's record to disk
+ * (`record.ts`). Since `C-0` that image may be a full-quality still or a photo picked
+ * from the gallery; the bar does not care which, and the record carries `source` so the
+ * corpus can tell them apart later.
+ *
+ * Deliberately its own file and its own strip of screen, so that when `D-5` decides the
+ * pitch should not show a debug control, removing it is deleting one import and one
+ * element rather than untangling it from the verdict screen.
  *
  * The name field is not optional-with-a-default on purpose. A corpus of ten files called
  * `packet-1` … `packet-10` is not a corpus anybody can tune against a week later; the
@@ -13,13 +17,13 @@
 import { useCallback, useState } from 'react';
 import { Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
-import type { LiveCapture } from '../camera/useScanLoop';
+import type { JudgedCapture } from '../camera/capture';
 import type { Verdict } from '../verdict/types';
 import { recordCapture, recordCount } from './record';
 import type { ExtractionResult } from './types';
 
 interface Props {
-  readonly capture: LiveCapture;
+  readonly capture: JudgedCapture;
   readonly extraction: ExtractionResult;
   readonly verdict: Verdict;
 }
@@ -32,7 +36,7 @@ type Outcome =
 export default function FieldTrialBar({ capture, extraction, verdict }: Props) {
   const [packet, setPacket] = useState('');
   const [outcome, setOutcome] = useState<Outcome>({ kind: 'idle' });
-  /** Counted once per mount — one frozen frame yields one record, so it cannot drift. */
+  /** Counted once per mount — one judged image yields one record, so it cannot drift. */
   const [alreadyHeld] = useState(recordCount);
 
   const onRecord = useCallback(() => {
@@ -46,6 +50,7 @@ export default function FieldTrialBar({ capture, extraction, verdict }: Props) {
         packet: name,
         captureUri: capture.uri,
         captureMs: capture.captureMs,
+        source: capture.source,
         frame: capture.frame,
         extraction,
         verdict,
@@ -83,7 +88,7 @@ export default function FieldTrialBar({ capture, extraction, verdict }: Props) {
         />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Record this frame to the field-trial corpus"
+          accessibilityLabel="Record this image to the field-trial corpus"
           style={[styles.button, saved && styles.buttonDone]}
           disabled={saved}
           onPress={onRecord}

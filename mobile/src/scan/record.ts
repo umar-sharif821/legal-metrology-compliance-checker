@@ -24,7 +24,7 @@
 import { Directory, File, Paths } from 'expo-file-system';
 
 import { RECORD_SCHEMA_ID, TRIAL_DIR, slugify, type FieldTrialRecord } from './recordTypes';
-import type { ExtractionResult, OcrFrame } from './types';
+import type { CaptureSource, ExtractionResult, OcrFrame } from './types';
 import type { Verdict } from '../verdict/types';
 
 export { RECORD_SCHEMA_ID, TRIAL_DIR } from './recordTypes';
@@ -56,7 +56,9 @@ export function recordCount(): number {
 export interface RecordInput {
   readonly packet: string;
   readonly captureUri: string;
-  readonly captureMs: number;
+  readonly captureMs: number | null;
+  /** Where the image came from. Carried, never guessed — see `recordTypes.ts`. */
+  readonly source: CaptureSource;
   readonly frame: OcrFrame;
   readonly extraction: ExtractionResult;
   readonly verdict: Verdict;
@@ -99,6 +101,7 @@ export function recordCapture(input: RecordInput): RecordResult {
     seq,
     packet: input.packet,
     imageFile: imageName,
+    source: input.source,
     frame: {
       imageWidth: input.frame.imageWidth,
       imageHeight: input.frame.imageHeight,

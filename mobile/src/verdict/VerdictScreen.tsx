@@ -3,8 +3,10 @@
  *
  * What it renders, and why each part is not optional:
  *
- *  - **The frozen frame, with the boxes still on it.** The verdict is about *this* image,
- *    and the image stays on screen while the findings are read.
+ *  - **The judged image, with the boxes still on it.** The verdict is about *this* image
+ *    — the full-quality still or the uploaded photo it was read from, never a preview
+ *    frame that merely looked similar — and it stays on screen while the findings are
+ *    read.
  *  - **The status, worded as narrowly as the method allows.** There is no `COMPLIANT`;
  *    the strongest thing this app may say is that it found no issue among the checks the
  *    pack runs, and the subtitle says exactly that (P3).
@@ -31,14 +33,14 @@ import {
 
 import Overlay, { type OverlayBox } from '../camera/Overlay';
 import type { Size } from '../camera/projection';
-import type { LiveCapture } from '../camera/useScanLoop';
+import type { JudgedCapture } from '../camera/capture';
 import FieldTrialBar from '../scan/FieldTrialBar';
 import type { ExtractionResult } from '../scan/types';
 import type { FieldReport, Finding, Verdict, VerdictStatus } from './types';
 
 interface Props {
   readonly verdict: Verdict;
-  readonly capture: LiveCapture;
+  readonly capture: JudgedCapture;
   /**
    * Carried through only so the field trial can record it (`D-3`).
    *
@@ -280,8 +282,19 @@ export default function VerdictScreen({ verdict, capture, extraction, onResume }
           </>
         )}
 
-        {/* Measured, not estimated — every number here was timed on this device (P8). */}
+        {/*
+         * Measured, not estimated — every number here was timed on this device (P8), and
+         * since `C-0` the line also says what kind of image produced them. A verdict read
+         * off a stock-camera photo and one read off a phone-held capture are not the same
+         * measurement, and the difference has to be legible from the screen, not inferred
+         * from which button somebody remembers pressing.
+         *
+         * An upload has no capture time this app can claim, and says so rather than
+         * printing a zero (P4).
+         */}
         <Text style={styles.timings}>
+          {capture.source === 'upload' ? 'uploaded photo' : 'full-quality capture'} ·{' '}
+          {capture.captureMs === null ? 'capture n/a' : `capture ${capture.captureMs} ms`} ·{' '}
           {verdict.counts.ocrLines} lines · OCR {verdict.timings.ocrMs} ms · extract{' '}
           {verdict.timings.extractMs} ms · evaluate {verdict.timings.evaluateMs} ms
         </Text>

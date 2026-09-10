@@ -9,11 +9,16 @@
  * start until the previous one has finished, and `LOOP_INTERVAL_MS` is a *floor* between
  * passes rather than a period.
  *
- * The loop is the app's only OCR source. **Freeze does not take a new picture** — it
- * keeps the most recent completed pass, which has already been recognised. That is what
- * makes beat 3 ("Freeze → verdict in under a second") true rather than aspirational: at
- * freeze time the only work left is `extract` and `evaluate`, both pure and sub-millisecond,
- * and the frame shown on screen is exactly the frame the verdict was computed from.
+ * **Since `C-0` the loop no longer produces verdicts.** It is a viewfinder: it keeps the
+ * tracking boxes, which are the demo's best visual and what beat 2 rests on, and its job
+ * is framing feedback — is there text, is it big enough, is it in frame. The frame a
+ * verdict rests on is a separate, fully processed still (`capture.ts`). `LiveCapture` is
+ * typed as `source: 'viewfinder'` so the compiler enforces that rather than a comment.
+ *
+ * The loop is still the only thing that drives the camera continuously, so anything else
+ * that wants the camera — the still capture, or the gallery picker — must go through
+ * `exclusive`. Two `takePictureAsync` calls in flight on one session is precisely the
+ * contention that wedged the Nord 4 at `D-2`.
  *
  * Demo scaffolding. `T-1.12` replaces the still-capture loop with a real frame processor.
  */
@@ -21,8 +26,9 @@ import type { CameraView } from 'expo-camera';
 import { File } from 'expo-file-system';
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-import type { OcrFrame } from '../scan/types';
+import type { Capture } from './capture';
 import { recognise } from './ocr';
+import { withTimeout } from './timeout';
 
 /**
  * Minimum milliseconds between the end of one pass and the start of the next.
@@ -59,40 +65,12 @@ export const MAX_CONSECUTIVE_ERRORS = 3;
 export const PASS_TIMEOUT_MS = 6000;
 
 /**
- * Reject if `work` has not settled within `ms`.
+ * A live loop pass.
  *
- * The underlying call is *not* cancelled — there is no way to cancel it — so a caller
- * that gives up must also arrange to clean up after the abandoned work if it eventually
- * succeeds. The loop below does that for the capture's file.
+ * Since `C-0` this is a *viewfinder* frame and nothing else: `source` is `'viewfinder'`,
+ * which `JudgedCapture` excludes, so the compiler refuses to let one reach a verdict.
  */
-function withTimeout<T>(work: Promise<T>, ms: number, label: string): Promise<T> {
-  return new Promise<T>((resolve, reject) => {
-    const timer = setTimeout(
-      () => reject(new Error(`${label} did not return within ${ms} ms`)),
-      ms,
-    );
-    work.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error: unknown) => {
-        clearTimeout(timer);
-        reject(error instanceof Error ? error : new Error(String(error)));
-      },
-    );
-  });
-}
-
-export interface LiveCapture {
-  /** The still on disk, so the frozen frame can be displayed and drawn over. */
-  readonly uri: string;
-  readonly frame: OcrFrame;
-  /** Shutter-to-file milliseconds, kept apart from `frame.ocrMs` (P8). */
-  readonly captureMs: number;
-  /** Increases with every pass; lets the UI distinguish a fresh frame from a repeat. */
-  readonly seq: number;
-}
+export type LiveCapture = Capture & { readonly source: 'viewfinder' };
 
 export interface ScanLoopState {
   readonly capture: LiveCapture | null;
@@ -107,6 +85,18 @@ export interface ScanLoopState {
    * app. Mid-demo that is the difference between a stumble and a stop.
    */
   readonly retry: () => void;
+  /**
+   * Run `work` with the loop held off and the camera to itself.
+   *
+   * Suspends the loop, waits for the pass already in flight to finish — it cannot be
+   * cancelled, only awaited — runs `work`, then resumes. Every other camera user in the
+   * app goes through here, so "one capture in flight at a time" stays true of the whole
+   * app and not merely of the loop.
+   *
+   * It is also what stops the loop burning the camera and the CPU behind a gallery picker
+   * the operator may sit in for a minute.
+   */
+  readonly exclusive: <T>(work: () => Promise<T>) => Promise<T>;
 }
 
 function sleep(ms: number): Promise<void> {
@@ -119,12 +109,15 @@ function sleep(ms: number): Promise<void> {
  * Every pass writes a full-resolution JPEG into the cache directory. At roughly one pass
  * a second an unattended rehearsal would leave hundreds of megabytes behind, on the demo
  * phone, during the demo. The file being replaced is always safe to remove; the newest
- * one is kept, because Freeze may be about to display it.
+ * one is kept, because it is the frame currently drawn under the overlay.
+ *
+ * Exported since `C-0` so `ScanScreen` can clean up the judged still, which the loop
+ * never sees and would otherwise leak one full-resolution JPEG per verdict.
  *
  * Failure here is swallowed deliberately — a cache file that would not delete is not a
  * reason to interrupt a scan, and it is not something a person can act on.
  */
-function discard(uri: string | null): void {
+export function discard(uri: string | null): void {
   if (!uri) return;
   try {
     new File(uri).delete();
@@ -151,8 +144,24 @@ export function useScanLoop(
   /** Held in a ref, not state: the loop must read the *current* uri, not a closed-over one. */
   const liveUri = useRef<string | null>(null);
   const seq = useRef(0);
+  /** Settles when the pass in flight ends; `null` between passes. */
+  const inFlight = useRef<Promise<void> | null>(null);
+  /** While true the loop starts no new pass. Held in a ref so `exclusive` needs no re-render. */
+  const suspended = useRef(false);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
+
+  const exclusive = useCallback(async <T>(work: () => Promise<T>): Promise<T> => {
+    suspended.current = true;
+    try {
+      // Never rejects — the loop's own error handling has already dealt with a failed
+      // pass — but awaiting it is what guarantees the camera is idle before `work` runs.
+      await inFlight.current;
+      return await work();
+    } finally {
+      suspended.current = false;
+    }
+  }, []);
 
   useEffect(() => {
     if (!active) return;
@@ -164,6 +173,12 @@ export function useScanLoop(
       let consecutiveErrors = 0;
 
       while (!cancelled) {
+        if (suspended.current) {
+          // Somebody else has the camera. Idle rather than contend; `exclusive` clears this.
+          await sleep(LOOP_INTERVAL_MS);
+          continue;
+        }
+
         const startedAt = Date.now();
         const camera = cameraRef.current;
 
@@ -172,6 +187,13 @@ export function useScanLoop(
           await sleep(LOOP_INTERVAL_MS);
           continue;
         }
+
+        // Published before the first `await` below, so an `exclusive` caller that arrives
+        // mid-pass has something to wait on rather than racing the shutter.
+        let passDone = () => {};
+        inFlight.current = new Promise<void>((resolve) => {
+          passDone = resolve;
+        });
 
         try {
           // `skipProcessing` skips the rotate-and-rescale pipeline, which is most of the
@@ -233,7 +255,13 @@ export function useScanLoop(
 
           consecutiveErrors = 0;
           setError(null);
-          setCapture({ uri: picture.uri, frame, captureMs, seq: seq.current });
+          setCapture({
+            uri: picture.uri,
+            frame,
+            captureMs,
+            seq: seq.current,
+            source: 'viewfinder',
+          });
           setPasses((n) => n + 1);
         } catch (caught) {
           if (cancelled) break;
@@ -243,6 +271,12 @@ export function useScanLoop(
             setError(`${message} (${consecutiveErrors} consecutive failures — loop stopped)`);
             return;
           }
+        } finally {
+          // Runs on every exit from the pass — success, throw, `break`, and the `return`
+          // above. An `exclusive` caller left waiting on a settled-but-uncleared promise
+          // would hang the capture button, so this cannot be conditional.
+          passDone();
+          inFlight.current = null;
         }
 
         const elapsed = Date.now() - startedAt;
@@ -255,5 +289,5 @@ export function useScanLoop(
     };
   }, [active, attempt, cameraRef]);
 
-  return { capture, error, passes, retry };
+  return { capture, error, passes, retry, exclusive };
 }

@@ -1,19 +1,42 @@
 /**
- * Phase D-2 — the core loop, and the demo itself.
+ * Phase D-2 — the core loop, and the demo itself. Reworked by `C-0`.
  *
- * Live preview with recognised text boxed on it, a Freeze button, and the verdict screen
- * behind it. The five beats of `docs/DEMO_PLAN.md` §1 run through this component.
+ * Live preview with recognised text boxed on it, the controls that produce a verdict, and
+ * the verdict screen behind them. The five beats of `docs/DEMO_PLAN.md` §1 run through
+ * this component.
  *
- * The one structural decision worth stating: **Freeze does not take a picture.** The
- * scan loop is the only thing that captures, and Freeze keeps the most recent pass it has
- * already recognised. Two things follow. The verdict appears immediately, because all
- * that remains is `extract` and `evaluate`, both pure and sub-millisecond. And the frame
- * on screen is provably the frame the verdict came from — not a second, similar picture
- * taken a moment later, whose boxes would not be the boxes the findings cite (P7).
+ * **What `C-0` changed, and why.** Until now the button was `Freeze`, and it did not take
+ * a picture: it kept the loop's most recent recognised pass, so the verdict appeared
+ * instantly and the frame on screen was provably the frame the verdict came from. The
+ * second half of that is worth keeping and is kept. The first half was paid for with
+ * `skipProcessing: true` — no autofocus settle, no HDR, no multi-frame noise reduction —
+ * on the one frame where those matter most. `C-0` takes the other side of that trade:
+ *
+ *  - The live preview is a **viewfinder**. It keeps the tracking boxes (beat 2 rests on
+ *    them) and answers "is there text, is it big enough, is it in frame". It no longer
+ *    produces a verdict, and `LiveCapture`'s `source: 'viewfinder'` makes that a type
+ *    error rather than a rule to remember.
+ *  - **Capture** takes a full-quality still and judges *that*. It costs a shutter and an
+ *    OCR pass — the verdict is no longer instant, and the screen says so while it works
+ *    rather than appearing to have hung (P9).
+ *  - **Upload** runs a photo taken with the stock camera app through the identical path.
+ *    Full sensor resolution, HDR, proper autofocus: materially better input than any live
+ *    frame, and the way ten packets get collected in five minutes instead of ten live
+ *    passes that each have to land.
+ *
+ * The frame under the overlay is still exactly the frame that was judged. Only its
+ * provenance changed.
+ *
+ * **`expo-image-picker` is deliberately not registered in `app.json`'s `plugins`.** Its
+ * Android half adds `RECORD_AUDIO` (for picking video) and crop-tool colours, and this
+ * app picks neither video nor crops anything. `launchImageLibraryAsync` goes through the
+ * Android photo picker, which needs no runtime permission at all — so registering it
+ * would buy nothing and make the app ask for a microphone it never uses.
  *
  * Demo scaffolding. `T-1.12` and `T-3.6` own the real versions of these two screens.
  */
 import { CameraView, useCameraPermissions } from 'expo-camera';
+import * as ImagePicker from 'expo-image-picker';
 import { useCallback, useRef, useState, type ReactNode } from 'react';
 import {
   ActivityIndicator,
@@ -24,22 +47,40 @@ import {
   type LayoutChangeEvent,
 } from 'react-native';
 
-import { DEMO_PACK } from '../rulepack/pack';
-import { extract } from '../scan/extract';
-import type { ExtractionResult, OcrFrame } from '../scan/types';
-import { evaluate } from '../verdict/evaluate';
-import type { Verdict } from '../verdict/types';
+import type { OcrFrame } from '../scan/types';
 import VerdictScreen from '../verdict/VerdictScreen';
+import { judge, type Judgement } from './capture';
 import Overlay, { type OverlayBox } from './Overlay';
 import { OCR_SCRIPT_NAME } from './ocr';
 import type { Size } from './projection';
-import { useScanLoop, type LiveCapture } from './useScanLoop';
+import { withTimeout } from './timeout';
+import { discard, useScanLoop } from './useScanLoop';
 
-interface Frozen {
-  readonly capture: LiveCapture;
-  /** Kept beside the verdict so `D-3`'s recorder can write the cascade's working. */
-  readonly extraction: ExtractionResult;
-  readonly verdict: Verdict;
+/**
+ * How long a judged capture may take before it is abandoned.
+ *
+ * Longer than the loop's `PASS_TIMEOUT_MS` on purpose. A processed still does strictly
+ * more work than a `skipProcessing` one — it waits for autofocus to settle, and on this
+ * phone it may merge several exposures — so six seconds calibrated against an ~850 ms
+ * preview pass would start rejecting healthy captures. Twelve seconds is long enough that
+ * only a genuine wedge trips it, and short enough that a person watching a spinner finds
+ * out inside a demo rather than after one.
+ */
+const JUDGE_TIMEOUT_MS = 12000;
+
+/** What the app is doing while no verdict is on screen. */
+type Busy =
+  | { readonly kind: 'idle' }
+  | { readonly kind: 'working'; readonly what: 'capture' | 'upload' }
+  | { readonly kind: 'failed'; readonly message: string };
+
+/** An image ready to be judged, whatever produced it. */
+interface PendingImage {
+  readonly uri: string;
+  readonly width: number;
+  readonly height: number;
+  readonly captureMs: number | null;
+  readonly source: 'still' | 'upload';
 }
 
 /**
@@ -75,7 +116,10 @@ export default function ScanScreen() {
   const [ready, setReady] = useState(false);
   const [mountError, setMountError] = useState<string | null>(null);
   const [previewSize, setPreviewSize] = useState<Size>({ width: 0, height: 0 });
-  const [frozen, setFrozen] = useState<Frozen | null>(null);
+  const [judged, setJudged] = useState<Judgement | null>(null);
+  const [busy, setBusy] = useState<Busy>({ kind: 'idle' });
+  /** Judged captures this session. Numbered separately from the loop's viewfinder passes. */
+  const judgedSeq = useRef(0);
   /**
    * Bumped to force a brand-new `CameraView`.
    *
@@ -86,26 +130,120 @@ export default function ScanScreen() {
    */
   const [cameraGeneration, setCameraGeneration] = useState(0);
 
-  // The loop runs only while the camera is up, nothing is frozen, and nothing has failed.
-  const live = useScanLoop(cameraRef, ready && frozen === null && mountError === null);
+  // The loop runs only while the camera is up, nothing is judged, nothing has failed, and
+  // nothing else is holding the camera.
+  const live = useScanLoop(
+    cameraRef,
+    ready && judged === null && mountError === null && busy.kind !== 'working',
+  );
 
-  const onFreeze = useCallback(() => {
-    const capture = live.capture;
-    if (!capture) return;
-    const extraction = extract(DEMO_PACK, capture.frame.lines);
-    const verdict = evaluate(DEMO_PACK, capture.frame, extraction);
-    setFrozen({ capture, extraction, verdict });
-  }, [live.capture]);
+  /**
+   * Run one judged capture, with the camera to itself and the loop held off.
+   *
+   * `produce` returns the image to judge, or `null` if the operator backed out — a
+   * cancelled gallery pick is not a failure and must not be reported as one.
+   */
+  const runJudged = useCallback(
+    (what: 'capture' | 'upload', produce: () => Promise<PendingImage | null>) => {
+      setBusy({ kind: 'working', what });
+      void live
+        .exclusive(async () => {
+          const image = await produce();
+          if (image === null) return null;
+          judgedSeq.current += 1;
+          try {
+            return await withTimeout(
+              judge({ ...image, seq: judgedSeq.current }),
+              JUDGE_TIMEOUT_MS,
+              what === 'upload' ? 'reading the photo' : 'full-quality capture',
+            );
+          } catch (failed) {
+            // No verdict means no `onResume`, so nothing else will ever reach this file.
+            // Same rule as the loop's: whoever abandons a capture cleans up after it. An
+            // upload is exempt for the same reason as there — that URI may not be ours.
+            if (image.source === 'still') discard(image.uri);
+            throw failed;
+          }
+        })
+        .then(
+          (result) => {
+            setBusy({ kind: 'idle' });
+            if (result !== null) setJudged(result);
+          },
+          (caught: unknown) => {
+            setBusy({
+              kind: 'failed',
+              message: caught instanceof Error ? caught.message : String(caught),
+            });
+          },
+        );
+    },
+    [live],
+  );
+
+  const onCapture = useCallback(() => {
+    runJudged('capture', async () => {
+      const camera = cameraRef.current;
+      if (!camera) throw new Error('the camera is not mounted');
+      const startedAt = Date.now();
+      // No `skipProcessing` — this is the whole of `C-0`'s first change. The pipeline it
+      // used to skip is what makes 1–2 mm print legible, and it also settles the EXIF
+      // orientation, which is why the judged frame no longer sometimes lies on its side.
+      const picture = await camera.takePictureAsync({ shutterSound: false });
+      if (!picture) throw new Error('takePictureAsync resolved without a picture');
+      return {
+        uri: picture.uri,
+        width: picture.width,
+        height: picture.height,
+        captureMs: Date.now() - startedAt,
+        source: 'still' as const,
+      };
+    });
+  }, [runJudged]);
+
+  const onUpload = useCallback(() => {
+    runJudged('upload', async () => {
+      const picked = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ['images'],
+        allowsMultipleSelection: false,
+        // Full resolution, and no crop step. Re-encoding or cropping the one input that is
+        // better than anything this app can capture would defeat the point of the feature.
+        quality: 1,
+        allowsEditing: false,
+      });
+      if (picked.canceled) return null;
+      const asset = picked.assets[0];
+      if (!asset) return null;
+      return {
+        uri: asset.uri,
+        width: asset.width,
+        height: asset.height,
+        // No shutter this app can time. `null`, never a zero (P4).
+        captureMs: null,
+        source: 'upload' as const,
+      };
+    });
+  }, [runJudged]);
 
   const onPreviewLayout = useCallback((event: LayoutChangeEvent) => {
     const { width, height } = event.nativeEvent.layout;
     setPreviewSize({ width, height });
   }, []);
 
+  const onResume = useCallback(() => {
+    // The loop never saw the judged still, so it leaks one full-resolution JPEG per
+    // verdict unless it is dropped here. An upload is left alone: the picker's copy is
+    // cheap, and the cost of being wrong about whose file that URI names is somebody's
+    // photo.
+    if (judged?.capture.source === 'still') discard(judged.capture.uri);
+    setJudged(null);
+  }, [judged]);
+
   const onRestart = useCallback(() => {
     // Order matters only in that both must happen: a fresh camera, then a fresh loop
     // waiting for it to report ready.
     setReady(false);
+    setBusy({ kind: 'idle' });
     setCameraGeneration((n) => n + 1);
     live.retry();
   }, [live]);
@@ -139,18 +277,19 @@ export default function ScanScreen() {
     );
   }
 
-  if (frozen) {
+  if (judged) {
     return (
       <VerdictScreen
-        verdict={frozen.verdict}
-        capture={frozen.capture}
-        extraction={frozen.extraction}
-        onResume={() => setFrozen(null)}
+        verdict={judged.verdict}
+        capture={judged.capture}
+        extraction={judged.extraction}
+        onResume={onResume}
       />
     );
   }
 
-  const error = mountError ?? live.error;
+  const working = busy.kind === 'working';
+  const error = mountError ?? (busy.kind === 'failed' ? busy.message : null) ?? live.error;
   const capture = live.capture;
   const boxes: OverlayBox[] =
     capture?.frame.lines.flatMap((line, index) =>
@@ -172,7 +311,8 @@ export default function ScanScreen() {
        * The boxes lag the world by one pass — roughly a second on this device. That is
        * inherent to a still-capture loop and is exactly what `T-1.12`'s frame processor
        * fixes. They still do the job they are here for: showing that the app is reading
-       * the label rather than guessing at it.
+       * the label rather than guessing at it, and telling the operator whether the panel
+       * is framed before they spend a capture on it.
        */}
       {capture && (
         <Overlay
@@ -198,7 +338,7 @@ export default function ScanScreen() {
         ) : capture === null ? (
           <Text style={styles.hint}>
             {ready
-              ? `Starting the scan loop… ${OCR_SCRIPT_NAME} script only.`
+              ? `Starting the viewfinder… ${OCR_SCRIPT_NAME} script only.`
               : 'Waiting for the camera…'}
           </Text>
         ) : (
@@ -213,6 +353,15 @@ export default function ScanScreen() {
              * misaligned boxes otherwise look exactly like an OCR failure.
              */}
             <Text style={styles.stats}>{geometrySummary(capture.frame)}</Text>
+            {/*
+             * P9, and the point of C-0 stated on the screen it changed. Somebody watching
+             * boxes track the label will assume those boxes are what gets judged. They
+             * are not, and that difference is the whole phase.
+             */}
+            <Text style={styles.viewfinder}>
+              Viewfinder — fast, unprocessed, for framing only. Capture takes the photo the verdict
+              is read from.
+            </Text>
             {capture.frame.lines.length === 0 && (
               <Text style={styles.warn}>
                 No {OCR_SCRIPT_NAME} text in view. The engine ran and returned nothing — that is not
@@ -223,15 +372,36 @@ export default function ScanScreen() {
         )}
       </View>
 
-      <View style={styles.freezeBar}>
+      <View style={styles.controls}>
+        {working && (
+          <View style={styles.workingRow}>
+            <ActivityIndicator color="#F8FAFC" />
+            <Text style={styles.workingText}>
+              {busy.what === 'upload'
+                ? 'Reading the photo…'
+                : 'Full-quality capture — focusing, then reading…'}
+            </Text>
+          </View>
+        )}
+
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Freeze this frame and check its declarations"
-          disabled={capture === null}
-          onPress={onFreeze}
-          style={[styles.freeze, capture === null && styles.freezeDisabled]}
+          accessibilityLabel="Take a full-quality photo and check its declarations"
+          disabled={!ready || working}
+          onPress={onCapture}
+          style={[styles.capture, (!ready || working) && styles.disabled]}
         >
-          <Text style={styles.freezeText}>Freeze</Text>
+          <Text style={styles.captureText}>Capture</Text>
+        </Pressable>
+
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Check a photo already taken with the camera app"
+          disabled={working}
+          onPress={onUpload}
+          style={[styles.upload, working && styles.disabled]}
+        >
+          <Text style={styles.uploadText}>Use a photo from the gallery</Text>
         </Pressable>
       </View>
     </View>
@@ -273,6 +443,7 @@ const styles = StyleSheet.create({
   },
   hint: { color: '#94A3B8', fontSize: 13, lineHeight: 18 },
   stats: { color: '#7DD3FC', fontSize: 12, fontVariant: ['tabular-nums'] },
+  viewfinder: { color: '#94A3B8', fontSize: 11, lineHeight: 16, marginTop: 6 },
   errorTitle: { color: '#FCA5A5', fontSize: 15, fontWeight: '700' },
   errorBody: { color: '#FCA5A5', fontSize: 12, marginTop: 6, lineHeight: 17 },
   retry: {
@@ -286,15 +457,33 @@ const styles = StyleSheet.create({
   },
   retryText: { color: '#FCA5A5', fontSize: 13, fontWeight: '700' },
 
-  freezeBar: { position: 'absolute', left: 0, right: 0, bottom: 40, alignItems: 'center' },
-  freeze: {
+  controls: { position: 'absolute', left: 0, right: 0, bottom: 36, alignItems: 'center' },
+  workingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 14,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 999,
+    backgroundColor: 'rgba(11,18,32,0.85)',
+  },
+  workingText: { color: '#F8FAFC', fontSize: 13 },
+  capture: {
     paddingVertical: 16,
-    paddingHorizontal: 52,
+    paddingHorizontal: 48,
     borderRadius: 999,
     backgroundColor: '#F8FAFC',
     borderWidth: 3,
     borderColor: 'rgba(248,250,252,0.35)',
   },
-  freezeDisabled: { opacity: 0.4 },
-  freezeText: { color: '#0B1220', fontSize: 17, fontWeight: '800', letterSpacing: 0.5 },
+  captureText: { color: '#0B1220', fontSize: 17, fontWeight: '800', letterSpacing: 0.5 },
+  upload: { marginTop: 14, paddingVertical: 8, paddingHorizontal: 18 },
+  uploadText: {
+    color: '#F8FAFC',
+    fontSize: 13,
+    fontWeight: '600',
+    textDecorationLine: 'underline',
+  },
+  disabled: { opacity: 0.4 },
 });

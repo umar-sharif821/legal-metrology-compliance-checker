@@ -40,9 +40,19 @@ considered and why it lost, so none of it is re-derived.
 |---|---|---|---|
 | 1 | Aeroplane mode is on before the app opens | No network the entire demo | **P2** offline first |
 | 2 | Live preview, text boxes tracking the label | It is reading, not guessing | — |
-| 3 | Freeze → verdict in under a second | Six declarations, found/missing | — |
+| 3 | Capture → verdict | Six declarations, found/missing | — |
 | 4 | Every finding names statute, rule, sub-clause, pack version | Not a vibe, a citation | **P1** deterministic, **P6** rules are data |
 | 5 | Tap a finding → the exact crop it came from | A person can overrule the machine | **P7** evidence is for a human |
+
+**Beat 3 changed in `C-0`, and the demo must not oversell it.** It used to read "Freeze →
+verdict in under a second", which was true because Freeze judged a preview frame already
+recognised — nothing was left to do but `extract` and `evaluate`, both pure and
+sub-millisecond. `C-0` traded that instant for a frame worth judging: **Capture** now takes
+a full-quality still and runs OCR on it, so there is a real wait, and the screen shows a
+spinner naming what it is doing. **Measured on the Nord 4: 785 ms capture + 842 ms OCR +
+14 ms extract and evaluate — about 1.6 s, shutter to verdict.** Say that, offline, rather
+than implying an instant one. The claim that survives intact is the one that mattered: the
+image on screen is exactly the image the verdict was read from.
 
 ### The sixth beat, if asked "is it ever wrong?"
 
@@ -240,9 +250,9 @@ Mirrored in `docs/PROGRESS.md` under **Now**, which is the source of truth. Upda
 |---|---|---|---|
 | **D-0** | Foundations — app scaffold, native build, rule pack, evaluator, tests | no | `[x]` done |
 | **D-1** | Shell on the phone — one still capture reaches ML Kit and prints text | **yes** | `[x]` done |
-| **D-2** | The core loop — live OCR, freeze, verdict screen with citations | **yes** | `[x]` done |
-| **D-3** | Field trial — tune against real packets until scans behave | **yes** | `[>]` blocked on packets |
-| **C-0** | **Capture quality** — full-quality still, image upload, preview demoted to viewfinder | **yes** | `[ ]` **not blocked — start here** |
+| **D-2** | The core loop — live OCR, freeze, verdict screen with citations | **yes** | `[x]` done *(freeze superseded by `C-0`'s Capture)* |
+| **D-3** | Field trial — tune against real packets until scans behave | **yes** | `[>]` **unblocked by `C-0`** — 2/10 packets |
+| **C-0** | **Capture quality** — full-quality still, image upload, preview demoted to viewfinder | **yes** | `[x]` done |
 | **A-0** | OCR provider interface + per-provider corpus, so accuracy is a number | no | `[ ]` not blocked |
 | **A-4** | Spatial anchor-value association (`T-2.3` pulled forward) | no | `[ ]` not blocked |
 | **D-4** | Honest degradation **+ frame admission** — refuse bad frames before OCR runs | **yes** | `[ ]` |
@@ -252,11 +262,10 @@ Mirrored in `docs/PROGRESS.md` under **Now**, which is the source of truth. Upda
 **Execution order is the table order, and nothing in it is blocked on anyone.** No key, no
 card, no Docker, no laptop, no GPU.
 
-`C-0` runs first because it is the cheapest accuracy in the project and because **it
+`C-0` ran first because it is the cheapest accuracy in the project and because **it
 unblocks `D-3`** — ten packets photographed with the stock camera app beats ten held in
-front of a live scan. It also matters more than it sounds: every capture measured so far
-has been a `skipProcessing` live frame, so **ML Kit has never once been handed a proper
-photo**. Nobody knows what it can actually do.
+front of a live scan. It also mattered more than it sounded: every capture before it was a
+`skipProcessing` live frame, so **ML Kit had never once been handed a proper photo**.
 
 `A-0` then measures that, on real packets, so any accuracy claim is a number rather than an
 assertion (**P8**). It keeps the provider interface so a cloud-hosted engine can be scored
@@ -362,6 +371,26 @@ camera quality, which is a coaching problem (`T-2.7`), not a hardware one.
 **Done when:** a packet photographed with the stock camera app can be fed in, judged, and
 recorded to the field-trial corpus; the judged frame is a fully processed capture; and the
 live preview no longer produces a verdict on its own.
+
+**What it actually bought, measured on the Nord 4 against one packet (Bhujialalji Navratna
+Mix), same scene seconds apart:**
+
+| | Viewfinder pass (`skipProcessing`) | Full-quality capture |
+|---|---|---|
+| Lines recognised | 32, and on a second pass **0** | **111** |
+| Capture | 335 ms | 785 ms |
+| OCR | 727 ms | 842 ms |
+
+**3.5x the text for about half a second more**, and the answer to "ML Kit has never been
+handed a proper photo" is that the engine was never the binding constraint — the frame was.
+The zero-line pass is the sharper number of the two: the panel filled the frame and the
+preview frame was simply too blurry to read, which is exactly what `D-4`'s frame admission
+is meant to catch.
+
+It did **not** fix extraction. That capture still located 2 of 6 declarations and both were
+wrong (`manufacturer: "gls flims Industries"`, `commodity_name: "of india"`) while `150 g`,
+`Rs 65.00` and `15JUL.2026` sat legibly in the frame, unfound. That is `A-4`'s territory —
+association, not recognition — and it is now evidence for it rather than a hypothesis.
 
 ### A-0 — Make accuracy measurable *(no device needed)*
 

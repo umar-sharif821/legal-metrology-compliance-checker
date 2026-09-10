@@ -1,9 +1,10 @@
 {
-  "schema": "lmscan.field-trial/1",
+  "schema": "lmscan.field-trial/2",
   "recordedAt": "2026-09-10T06:21:07.906Z",
   "seq": 2,
   "packet": "Lays Bhujia Namkeen Capture 2",
   "imageFile": "002-lays-bhujia-namkeen-capture-2.jpg",
+  "source": "viewfinder",
   "frame": {
     "imageWidth": 3072,
     "imageHeight": 4096,

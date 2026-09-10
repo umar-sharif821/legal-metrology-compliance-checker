@@ -7,11 +7,20 @@
  * no import at all. Same discipline as `scan/types.ts` — everything downstream of the
  * camera stays plain TypeScript.
  */
-import type { OcrLine } from './types';
+import type { CaptureSource, OcrLine } from './types';
 import type { VerdictStatus } from '../verdict/types';
 
-/** Bump when the record's shape changes, so a pulled corpus can never be misread. */
-export const RECORD_SCHEMA_ID = 'lmscan.field-trial/1';
+/**
+ * Bump when the record's shape changes, so a pulled corpus can never be misread.
+ *
+ * `/2` is `C-0`: `source` was added and `timings.captureMs` became nullable. The two `/1`
+ * records were rewritten in place to declare `source: "viewfinder"`, which is what they
+ * always were — every capture before `C-0` was a `skipProcessing` live frame. That is an
+ * annotation of a measurement, not a change to one; no line, box or timing was touched.
+ * There is deliberately no compatibility branch, because a corpus with one schema in it
+ * is a corpus nobody has to reason about.
+ */
+export const RECORD_SCHEMA_ID = 'lmscan.field-trial/2';
 
 /** Directory name under `Paths.document` on the device, and under `mobile/` on the host. */
 export const TRIAL_DIR = 'field-trial';
@@ -47,13 +56,29 @@ export interface FieldTrialRecord {
   /** Free text the operator typed to name the packet. Never parsed, only displayed. */
   readonly packet: string;
   readonly imageFile: string;
+  /**
+   * What kind of image this packet was read from.
+   *
+   * Added by `C-0`, and the field that makes the corpus comparable. Two records of the
+   * same packet, one a viewfinder frame and one a stock-camera photo, will disagree — and
+   * without this, whoever reads them a week later has no way to know that the disagreement
+   * is the point rather than a bug (P8).
+   */
+  readonly source: CaptureSource;
   readonly frame: {
     readonly imageWidth: number;
     readonly imageHeight: number;
     readonly coordinatesTransposed: boolean;
   };
   readonly timings: {
-    readonly captureMs: number;
+    /**
+     * Shutter-to-file milliseconds, or `null` for an upload.
+     *
+     * A photo taken minutes ago by another app has no shutter latency this app can claim.
+     * `null` says so; a zero would be a number the method cannot support, and it would
+     * quietly drag down any latency average computed over the corpus (P4, P8).
+     */
+    readonly captureMs: number | null;
     readonly ocrMs: number;
     readonly extractMs: number;
     readonly evaluateMs: number;

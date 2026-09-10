@@ -28,12 +28,16 @@ import { describe, expect, it } from 'vitest';
 import { DEMO_PACK } from '../rulepack/pack';
 import { extract } from './extract';
 import { RECORD_SCHEMA_ID, type FieldTrialRecord } from './recordTypes';
+import type { CaptureSource } from './types';
 import { evaluate } from '../verdict/evaluate';
 
 const CORPUS_DIR = join(dirname(fileURLToPath(import.meta.url)), '..', '..', 'field-trial');
 
 /** The ten packets D-3 calls for. Named here so the shortfall is visible in the report. */
 const TARGET_PACKETS = 10;
+
+/** Every provenance a record may declare. Kept in step with `CaptureSource` by the compiler. */
+const KNOWN_SOURCES: readonly CaptureSource[] = ['viewfinder', 'still', 'upload'];
 
 function loadCorpus(): { readonly file: string; readonly record: FieldTrialRecord }[] {
   let names: string[];
@@ -71,6 +75,31 @@ describe('D-3 field-trial corpus', () => {
       it('is a record this suite understands', () => {
         expect(record.schema).toBe(RECORD_SCHEMA_ID);
         expect(record.lines.length).toBeGreaterThan(0);
+      });
+
+      it('says what kind of image it was read from', () => {
+        // `C-0` made the corpus able to hold three different measurements of a label —
+        // an unprocessed viewfinder frame, a full-quality still, and a stock-camera photo
+        // — and they do not produce the same lines. A record that does not say which it
+        // is cannot be compared with anything, so it fails here rather than sitting in the
+        // corpus looking usable (P8).
+        expect(
+          KNOWN_SOURCES,
+          `${file} declares source "${String(record.source)}", which this suite does not know.`,
+        ).toContain(record.source);
+      });
+
+      it('reports a capture time only where one exists', () => {
+        // An upload has no shutter this app timed. A number there would be invented, and
+        // it would silently join any latency average taken over the corpus (P4).
+        if (record.source === 'upload') {
+          expect(
+            record.timings.captureMs,
+            `${file} is an upload and cannot have a capture time`,
+          ).toBeNull();
+        } else {
+          expect(record.timings.captureMs, `${file}`).toBeTypeOf('number');
+        }
       });
 
       it('has been reviewed by a person', () => {

@@ -6,6 +6,22 @@
  * a dependency on a device.
  */
 
+/**
+ * Where an image came from — the provenance `C-0` made it necessary to record.
+ *
+ * A stock-camera photo and a `skipProcessing` preview frame are different measurements of
+ * the same label, and a corpus that mixes them without saying which is which cannot
+ * answer the question `C-0` exists to ask (P8). Lives here rather than beside the camera
+ * because the field-trial record carries it, and the record's types must stay loadable
+ * under Node.
+ *
+ * - `viewfinder` — a live loop pass. Fast, unprocessed, framing feedback only, and since
+ *   `C-0` never the basis of a verdict.
+ * - `still` — a full-quality `takePictureAsync` the operator asked for.
+ * - `upload` — a photo taken with the stock camera app and picked from the gallery.
+ */
+export type CaptureSource = 'viewfinder' | 'still' | 'upload';
+
 /** A bounding box in **image pixel** coordinates, origin top-left. */
 export interface Box {
   readonly x: number;

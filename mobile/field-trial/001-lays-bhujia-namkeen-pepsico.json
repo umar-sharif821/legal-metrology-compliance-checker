@@ -1,9 +1,10 @@
 {
-  "schema": "lmscan.field-trial/1",
+  "schema": "lmscan.field-trial/2",
   "recordedAt": "2026-09-10T05:52:54.236Z",
   "seq": 1,
   "packet": "Lays Bhujia Namkeen PepsiCo",
   "imageFile": "001-lays-bhujia-namkeen-pepsico.jpg",
+  "source": "viewfinder",
   "frame": {
     "imageWidth": 3072,
     "imageHeight": 4096,

@@ -3,9 +3,32 @@
 Each `NNN-<slug>.json` here is one real packet, recorded on the device by the **Record**
 control on the verdict screen and pulled with `scripts/pull-field-trial.sh`.
 
+Since `C-0` a record can come from a photo taken with the stock camera app: photograph
+ten packets, then feed them in with **Use a photo from the gallery** and record each one.
+That is the intended way to fill this directory — holding a packet in front of a live
+scan and hoping the pass lands was what left `D-3` stuck at two.
+
 The JSON holds the raw OCR lines the packet produced, with their boxes. That is a
 measurement, not a guess: once the packet is off the desk those exact lines cannot be
 obtained again, which is why they are committed.
+
+## `source` — read this before comparing two records
+
+Every record declares where its image came from, and the three kinds are **not
+interchangeable measurements of the same packet**:
+
+| `source` | What it was |
+|---|---|
+| `viewfinder` | A live loop pass, `skipProcessing: true` — no autofocus settle, no HDR. Pre-`C-0` records are all this. |
+| `still` | A full-quality capture the operator asked for. |
+| `upload` | A photo taken with the stock camera app. The best input the app can be given. |
+
+Two records of one packet with different sources will disagree, and that disagreement is
+data rather than a bug. `timings.captureMs` is `null` for an `upload` — there is no
+shutter this app timed, and a zero there would join any latency average silently (P4).
+
+Records 001 and 002 were written before `C-0` and were annotated with
+`"source": "viewfinder"` when the field was added. Nothing else in them was touched.
 
 The matching `NNN-<slug>.jpg` is **not** committed — see `.gitignore`. Tuning changes
 lexicons and shapes, which operate on lines, so the JSON alone is the replay corpus. The
