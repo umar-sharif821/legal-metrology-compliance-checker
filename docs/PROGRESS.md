@@ -51,11 +51,27 @@ missed. `NAV_BAR_INSET` now lives in `mobile/src/ui/layout.ts`, both screens imp
 `mobile/src/ui/layout.test.ts` fails the build if any `bottom:` offset in `mobile/src` omits
 it. **The guard was confirmed to fail on the old value before being kept.**
 
-**Next phase to actually start:** **`D-3`** — **2/10 recorded**, and the flow now works.
+**Next phase to actually start:** **`A-4`** — spatial anchor–value association. *(no device)*
+
+**`D-3` is paused at 2/10 by user decision, not finished and not dropped.** The flow works
+now, so resuming it is cheap whenever the packets are collected. The reason to go to `A-4`
+first: the eight packets still to collect would mostly re-demonstrate the *same* known
+defect, and each one costs a hand-written `expect` block asserting behaviour we already know
+is wrong. Fix the association first, then collect against a pack worth measuring.
+
+**This runs against the plan's own cut order**, which ranks `D-3` last to drop (`DEMO_PLAN`
+§"what to cut": *"Never drop D-3 to reach D-5 — an unpolished demo that reads real labels
+beats a polished one that does not"*). That warning is about **dropping** `D-3` to reach
+polish, which is not what this is: `A-4` is accuracy work, `D-3` stays on the board at
+`[>]`, and it must be resumed before `D-5`. **If `D-3` is still at 2/10 when `D-5` comes
+up, stop and finish `D-3` first.**
+
 **Judging a packet is not recording it.** Packet 3 was uploaded and judged this session but
-never recorded, so the corpus is still at 2. The remaining work is 8 more packets *and* a
-hand-written `expect` block for each — the `expect` blocks are the slow half, not the
-photography.
+never recorded, so the corpus is still at 2. The remaining `D-3` work is 8 more packets *and*
+a hand-written `expect` block for each — the `expect` blocks are the slow half, not the
+photography. **Variety, not count:** both current records are the same product, so the pack
+is tuned to one label. Ten is a round number from the plan, not a derived one — the real
+stopping rule is *when a new packet stops breaking something new*.
 Photograph the remaining packets with the stock camera app, then feed each in with *Use a
 photo from the gallery* and hit **Record**. `mobile/field-trial/README.md` has the flow and
 the `source` table.
@@ -220,10 +236,10 @@ Demo phases, in priority order. After each one there is still a demo you could g
 - [x] `D-0` Foundations — scaffold, Gradle build green, rule pack, evaluator, unit tests · *no device*
 - [x] `D-1` Shell on the phone — one still capture reaches ML Kit and prints text
 - [x] `D-2` Core loop — live OCR, freeze, verdict screen with citations · **the demo itself**
-- [>] `D-3` Field trial — 2/10 packets recorded; **unblocked by `C-0`** — collect via gallery upload ← **resume here**
+- [>] `D-3` Field trial — 2/10 recorded; unblocked and cheap now, **paused by user decision** — must be resumed before `D-5`
 - [x] `C-0` Capture quality — full-quality still, image upload, preview → viewfinder · **fully verified on device**
 - [ ] `A-0` Make accuracy measurable — `OCRProvider`, per-provider corpus · *no device*
-- [ ] `A-4` Spatial anchor-value association (`T-2.3` pulled forward) · *no device* — **biggest remaining accuracy win**
+- [ ] `A-4` Spatial anchor-value association (`T-2.3` pulled forward) · *no device* — **biggest remaining accuracy win** ← **resume here**
 - [ ] `D-4` Honest degradation **+ frame admission** — refuse a bad frame before OCR runs (`T-2.7` half pulled forward)
 - [~] `A-1`/`A-2`/`A-3` Server OCR — **dropped**, see `DEMO_PLAN` §2.1
 - [ ] `D-5` Polish and rehearsal — icon, standalone APK, `docs/DEMO_SCRIPT.md`, two run-throughs
@@ -368,6 +384,7 @@ Append-only. One line each. Never re-litigate a line that is already here.
 - `2026-09-10` **`mobile/src/ui/layout.test.ts` fails the build if any `bottom:` offset under `mobile/src` omits `NAV_BAR_INSET`** (bare `bottom: 0` is allowed as a deliberate flush edge). Confirmed to fail on the pre-fix value before being kept — a guard that cannot fail is not a guard.
 - `2026-09-10` **`uiautomator dump` cannot read the scan screen** (`ERROR: could not get idle state`) — the live loop keeps the UI perpetually non-idle. It works on the verdict screen and the photo picker. Screenshot-and-compute is the only option on the scan screen, and it is worth reaching for a dump wherever the UI does settle: the dump's bounds beat a screenshot estimate that was 30 px off.
 - `2026-09-10` **Drive the phone one tap at a time, then look.** The recorded hazard was taps being *dropped*; this session showed they are also *misrouted* — a single tap aimed at *Scan again* also reached the freshly mounted scan screen's controls, and batched follow-up taps dismissed the photo picker before any screenshot saw it. Never batch `tap; sleep; tap` in one command.
+- `2026-09-10` **USER DECISION — `D-3` paused at 2/10 and `A-4` taken next.** Not a cut: `D-3` stays `[>]` and must be finished before `D-5`. Rationale: the remaining packets would re-demonstrate one already-understood defect, and each costs an `expect` block asserting known-wrong behaviour. Fix association first, then collect. Also settled, so it is not re-argued: **`D-3` wants variety, not ten** — both current records are the same product, "ten packets" is a round number the plan never derives, and the real stopping rule is *when a new packet stops finding a new failure*.
 - `2026-09-10` **The app restores a judged verdict on relaunch.** A cold launch landing on the verdict screen is normal; it is not evidence that a capture just ran, and it misled this session for several rounds.
 
 ---
