@@ -37,13 +37,20 @@ export async function loadImageElement(
   file: File,
 ): Promise<{ img: HTMLImageElement; revoke: () => void }> {
   const url = URL.createObjectURL(file);
-  const img = await new Promise<HTMLImageElement>((resolve, reject) => {
-    const el = new Image();
-    el.onload = () => resolve(el);
-    el.onerror = () => reject(new Error('The browser could not decode that image.'));
-    el.src = url;
-  });
-  return { img, revoke: () => URL.revokeObjectURL(url) };
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = () => reject(new Error('The browser could not decode that image.'));
+      el.src = url;
+    });
+    return { img, revoke: () => URL.revokeObjectURL(url) };
+  } catch (e) {
+    // The caller only gets a `revoke` on success, so an undecodable file would
+    // otherwise leave its object URL alive for the life of the page.
+    URL.revokeObjectURL(url);
+    throw e;
+  }
 }
 
 /** Draw a region of an image onto a canvas no larger than `maxEdge`. */

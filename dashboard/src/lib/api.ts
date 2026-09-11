@@ -59,18 +59,28 @@ export async function analyseImage(
   onStage?: (stage: Stage) => void,
 ): Promise<Result<Scan>> {
   const objectUrl = URL.createObjectURL(file);
+  // Only the URL the report ends up displaying should survive this call. The other —
+  // and both of them, if the read fails — is released rather than left alive for the
+  // life of the page.
+  let keep = false;
 
   try {
-    const body = new FormData();
-    body.append('image', file);
-    const res = await withTimeout('/api/scan', { method: 'POST', body });
-    if (!res.ok) throw new Error(`POST /api/scan responded ${res.status}`);
-    const data = (await res.json()) as Scan;
-    return { data: { ...data, imageUrl: objectUrl, sample: false }, origin: 'live' };
-  } catch {
-    // No server. Read it here — and let any failure propagate to the caller.
-    const data = await analyseInBrowser(file, objectUrl, onStage);
-    return { data, origin: 'device' };
+    try {
+      const body = new FormData();
+      body.append('image', file);
+      const res = await withTimeout('/api/scan', { method: 'POST', body });
+      if (!res.ok) throw new Error(`POST /api/scan responded ${res.status}`);
+      const data = (await res.json()) as Scan;
+      keep = true;
+      return { data: { ...data, imageUrl: objectUrl, sample: false }, origin: 'live' };
+    } catch {
+      // No server. Read it here — and let any failure propagate to the caller.
+      const data = await analyseInBrowser(file, objectUrl, onStage);
+      keep = data.imageUrl === objectUrl;
+      return { data, origin: 'device' };
+    }
+  } finally {
+    if (!keep) URL.revokeObjectURL(objectUrl);
   }
 }
 
@@ -101,8 +111,15 @@ export async function downloadNotice(scan: Scan): Promise<Origin> {
     const a = document.createElement('a');
     a.href = url;
     a.download = `${scan.id}-notice.pdf`;
+    // Firefox ignores a click on an anchor that is not in the document, and revoking
+    // the URL in the same tick can cancel the download before it starts.
+    a.style.display = 'none';
+    document.body.appendChild(a);
     a.click();
-    URL.revokeObjectURL(url);
+    setTimeout(() => {
+      a.remove();
+      URL.revokeObjectURL(url);
+    }, 0);
     return 'live';
   } catch {
     openPrintableNotice(scan);

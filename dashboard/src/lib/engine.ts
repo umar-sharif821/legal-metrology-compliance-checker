@@ -189,8 +189,16 @@ export async function analyseInBrowser(
   // crop would put the working somewhere the reader cannot check it (P7).
   const cropped = chosen.fraction < 0.995;
   const shownUrl = cropped ? await canvasUrl(chosen.canvas) : imageUrl;
+
+  // Compare the crop against the BEST whole-frame reading, not an arbitrary one. The
+  // whole frame is read at more than one segmentation mode, and quoting only the first
+  // of them overstated what the crop gained.
+  const wholeFrameBest = scored
+    .filter((s) => s.c.fraction >= 0.995)
+    .reduce((n, s) => Math.max(n, s.found), 0);
+
   const analysisNote = cropped
-    ? `Most of your photograph was background, so the panel was located and re-read from the original at higher resolution. The image below is the region that was analysed — ${(chosen.fraction * 100).toFixed(0)}% of what you uploaded — and it located ${best.found} declarations against ${scored[0]?.found ?? 0} for the whole frame.`
+    ? `Most of your photograph was background, so the panel was located and re-read from the original at higher resolution. The image below is the region that was analysed — ${(chosen.fraction * 100).toFixed(0)}% of what you uploaded — and it located ${best.found} declarations against ${wholeFrameBest} for the whole frame.`
     : null;
 
   const norm = normaliser(width, height);

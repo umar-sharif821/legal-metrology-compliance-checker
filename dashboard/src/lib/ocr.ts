@@ -98,6 +98,12 @@ function getWorker(): Promise<Worker> {
     corePath: '/tesseract/',
     langPath: '/tesseract',
     gzip: true,
+  }).catch((e: unknown) => {
+    // Do not cache a rejection. One failed load — a warm-up that raced a reload, a
+    // hiccup fetching the language data — would otherwise poison every later scan
+    // until the page was reloaded, with no way for the operator to retry.
+    workerPromise = null;
+    throw e;
   });
   return workerPromise;
 }
@@ -123,14 +129,28 @@ interface Rendered {
 }
 
 /**
- * Draw a region of the source image onto a canvas no larger than `maxEdge`.
+ * Upper bound on enlargement.
+ *
+ * The measured gain came from doubling a 1500px scene to 3000px. Interpolation invents
+ * no detail, so past roughly 2x it only costs recognition time; a thumbnail blown up to
+ * `PASS_1_EDGE` would be slow and no more legible.
+ */
+const MAX_UPSCALE = 2;
+
+/**
+ * Draw a region of the source image onto a canvas, targeting `maxEdge` on its long side.
  *
  * Downscaling is safe for every threshold the pack applies, because all of them are
  * fractions of the frame rather than pixel counts, and scaling uniformly leaves a
  * fraction unchanged.
+ *
+ * Enlargement is allowed, up to `MAX_UPSCALE`. It previously was not — the scale was
+ * clamped at 1 — which silently withheld the upscaling gain the constants above are
+ * documented as buying. A measurement that the code cannot actually obtain is worse than
+ * no measurement (P8).
  */
 function render(img: HTMLImageElement, rect: Rect, maxEdge: number): Rendered {
-  const scale = Math.min(1, maxEdge / Math.max(rect.w, rect.h));
+  const scale = Math.min(maxEdge / Math.max(rect.w, rect.h), MAX_UPSCALE);
   const width = Math.max(1, Math.round(rect.w * scale));
   const height = Math.max(1, Math.round(rect.h * scale));
 
@@ -242,24 +262,15 @@ export async function recognise(file: File): Promise<Recognised> {
   try {
     const worker = await getWorker();
     const full: Rect = { x: 0, y: 0, w: img.naturalWidth, h: img.naturalHeight };
-    const startedAt = performance.now();
 
-    // --- pass one: find the text ---
-    const first = render(img, full, PASS_1_EDGE);
-    const r1 = await worker.recognize(first.canvas, {}, { blocks: true, text: true });
-
-    const extent = textExtent(r1.data);
-    const frameArea = first.width * first.height;
-    const textFraction = extent ? (extent.width * extent.height) / frameArea : 0;
-
-    const build = (r: Rendered, data: unknown, fraction: number): Candidate => ({
+    const build = (r: Rendered, data: unknown, fraction: number, ocrMs: number): Candidate => ({
       frame: {
         lines: toOcrLines(data, (data as { text?: string }).text ?? ''),
         imageWidth: r.width,
         imageHeight: r.height,
         // The canvas was drawn upright, so boxes and dimensions already agree.
         coordinatesTransposed: false,
-        ocrMs: Math.round(performance.now() - startedAt),
+        ocrMs,
       },
       width: r.width,
       height: r.height,
@@ -267,13 +278,54 @@ export async function recognise(file: File): Promise<Recognised> {
       fraction,
     });
 
-    const candidates: Candidate[] = [build(first, r1.data, 1)];
-    for (const psm of SEG_MODES.slice(1)) {
+    const candidates: Candidate[] = [];
+
+    /**
+     * Read one rendering at one segmentation mode.
+     *
+     * The mode is set explicitly every time rather than relying on whatever the worker
+     * happens to hold. tesseract.js never applies an initial `tessedit_pageseg_mode`, so
+     * libtesseract's own default (SINGLE_BLOCK) governed the first recognition of a
+     * session while later scans inherited whatever the previous scan left behind. The
+     * same photograph could therefore reach a different verdict depending on how many
+     * scans preceded it — and the first scan, the one anybody watches, was the odd one.
+     *
+     * Each reading is timed on its own, so the millisecond figure the report shows is the
+     * work that produced the reading it is shown beside.
+     */
+    const readAt = async (r: Rendered, psm: (typeof SEG_MODES)[number], fraction: number) => {
       await worker.setParameters({ tessedit_pageseg_mode: psm });
-      const alt = await worker.recognize(first.canvas, {}, { blocks: true, text: true });
-      candidates.push(build(first, alt.data, 1));
+      const startedAt = performance.now();
+      const result = await worker.recognize(r.canvas, {}, { blocks: true, text: true });
+      const ocrMs = Math.round(performance.now() - startedAt);
+      const candidate = build(r, result.data, fraction, ocrMs);
+      candidates.push(candidate);
+      return { data: result.data, lines: candidate.frame.lines.length };
+    };
+
+    // --- pass one: find the text ---
+    const first = render(img, full, PASS_1_EDGE);
+
+    /**
+     * Where the text is, according to whichever mode read the most of it.
+     *
+     * Taking the extent from one fixed mode meant that on exactly the images this module
+     * exists for — where one mode returns nothing and the other finds the panel — the
+     * crop was skipped because the chosen mode had seen no words.
+     */
+    let extent: Box | null = null;
+    let bestLines = 0;
+    for (const psm of SEG_MODES) {
+      const { data, lines } = await readAt(first, psm, 1);
+      const found = textExtent(data);
+      if (found && lines > bestLines) {
+        extent = found;
+        bestLines = lines;
+      }
     }
-    await worker.setParameters({ tessedit_pageseg_mode: SEG_MODES[0] });
+
+    const frameArea = first.width * first.height;
+    const textFraction = extent ? (extent.width * extent.height) / frameArea : 0;
 
     // --- pass two: re-read the located panel, from the original pixels ---
     if (extent && textFraction > MIN_CROP_AREA && textFraction < CROP_WHEN_TEXT_BELOW) {
@@ -292,11 +344,8 @@ export async function recognise(file: File): Promise<Recognised> {
       const second = render(img, rect, PASS_2_EDGE);
       const fraction = (rect.w * rect.h) / (full.w * full.h);
       for (const psm of SEG_MODES) {
-        await worker.setParameters({ tessedit_pageseg_mode: psm });
-        const r2 = await worker.recognize(second.canvas, {}, { blocks: true, text: true });
-        candidates.push(build(second, r2.data, fraction));
+        await readAt(second, psm, fraction);
       }
-      await worker.setParameters({ tessedit_pageseg_mode: SEG_MODES[0] });
     }
 
     return { candidates };

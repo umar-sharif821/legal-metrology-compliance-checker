@@ -61,7 +61,13 @@ const PREFERRED = [
   'gemini-1.5-flash',
 ];
 
-let resolvedModel: string | null = null;
+/**
+ * The model known to answer, per API key.
+ *
+ * Keyed by the key itself: a single global meant swapping keys reused a model the new
+ * account may never have had access to, producing a 404 that looked like a code fault.
+ */
+const resolvedModels = new Map<string, string>();
 
 /** Model families that cannot read an image, or are far too slow to sit in a scan. */
 const UNSUITABLE = /embedding|aqa|imagen|veo|tts|audio|learnlm|gemma|thinking|-pro/i;
@@ -105,9 +111,28 @@ async function withTimeout(url: string, init: RequestInit, ms: number): Promise<
   }
 }
 
-/** Rank the account's usable models: preferred names first, then any other flash model. */
+/**
+ * Rank the account's usable models: preferred names first, then any other flash model.
+ *
+ * Cached per key. Re-listing on every scan meant a transient failure at Google's model
+ * endpoint could fail a scan that a already-known-good model would have served, and it
+ * spent a round trip on every scan for an answer that does not change.
+ */
+const modelListCache = new Map<string, string[]>();
+
 async function candidateModels(key: string): Promise<string[]> {
-  const res = await fetch(`${API_ROOT}/models?key=${encodeURIComponent(key)}`);
+  const cached = modelListCache.get(key);
+  if (cached) return cached;
+
+  // Bounded like every other request here. An unbounded fetch was the one path that
+  // could hang a scan indefinitely with nothing on screen.
+  const res = await withTimeout(
+    `${API_ROOT}/models?key=${encodeURIComponent(key)}`,
+    {},
+    PROBE_TIMEOUT_MS,
+  ).catch(() => {
+    throw new Error('Google did not answer when asked which models this key can use.');
+  });
   if (!res.ok) {
     throw new Error(
       res.status === 400 || res.status === 403
@@ -132,6 +157,7 @@ async function candidateModels(key: string): Promise<string[]> {
   // failed scan into a minute of waiting.
   const ranked = [...preferred, ...otherFlash, ...rest].slice(0, MAX_PROBES);
   if (ranked.length === 0) throw new Error('That key has no models available for image reading.');
+  modelListCache.set(key, ranked);
   return ranked;
 }
 
@@ -153,7 +179,8 @@ function isModelUnavailable(status: number, detail: string): boolean {
  * sent once, to a model already known to answer.
  */
 async function resolveModel(key: string): Promise<string> {
-  if (resolvedModel) return resolvedModel;
+  const known = resolvedModels.get(key);
+  if (known) return known;
 
   const models = await candidateModels(key);
   let lastDetail = '';
@@ -173,7 +200,7 @@ async function resolveModel(key: string): Promise<string> {
         PROBE_TIMEOUT_MS,
       );
       if (probe.ok) {
-        resolvedModel = model;
+        resolvedModels.set(key, model);
         return model;
       }
       lastDetail = await probe.text().catch(() => '');
@@ -355,6 +382,10 @@ export async function recogniseGemini(
           }
           return null; // still busy — let the caller try a different model
         }
+        // A retired or unavailable model is the case this whole adapter exists to
+        // survive. Only the probed model is known to answer; a fallback taken from the
+        // account's list can still be one Google has withdrawn.
+        if (isModelUnavailable(res.status, detail)) return null;
         if (res.status === 429) {
           throw new Error('Google rate-limited the request. Wait a moment and try again.');
         }
@@ -370,7 +401,7 @@ export async function recogniseGemini(
       res = await attempt(model);
       if (res) {
         // Remember whichever model actually served us, so the next scan starts there.
-        resolvedModel = model;
+        resolvedModels.set(trimmed, model);
         break;
       }
     }
