@@ -140,7 +140,9 @@ describe('best-of-N frame choice', () => {
   it('prefers the frame that passes more checks', () => {
     const good = admit(frame(goodLines()), T);
     const cutOff = admit(
-      frame(Array.from({ length: 12 }, (_, i) => line({ x: 0, y: 300 + i * 90, width: W, height: 60 }))),
+      frame(
+        Array.from({ length: 12 }, (_, i) => line({ x: 0, y: 300 + i * 90, width: W, height: 60 })),
+      ),
       T,
     );
     expect(isBetterFrame(good, cutOff)).toBe(true);

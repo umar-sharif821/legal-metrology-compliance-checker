@@ -329,7 +329,9 @@ describe('an anchor printed as a label, versus the same word in a sentence', () 
     // `manufacturer_address` sets the flag false, so its anchors are still believed
     // mid-line. That is the pack's call to make and this test only records it.
     expect(DEMO_PACK.fieldById('manufacturer_address')?.anchorMustBeLabelled).toBe(false);
-    expect(run(['Film manufactured by: GLS Films Industries']).get('manufacturer_address')).toBeDefined();
+    expect(
+      run(['Film manufactured by: GLS Films Industries']).get('manufacturer_address'),
+    ).toBeDefined();
   });
 
   it('takes the rule from the pack, so it is a data decision', () => {

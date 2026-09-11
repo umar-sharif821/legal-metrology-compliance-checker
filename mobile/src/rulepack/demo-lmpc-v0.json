@@ -37,25 +37,11 @@
       "min_text_height_fraction": 0.012,
       "min_text_coverage": 0.02,
       "max_edge_touch_fraction": 0.34,
-      "unscored": [
-        "blur",
-        "glare"
-      ]
+      "unscored": ["blur", "glare"]
     }
   },
   "tables": {
-    "units_mass": [
-      "g",
-      "gm",
-      "gms",
-      "gram",
-      "grams",
-      "kg",
-      "kgs",
-      "kilogram",
-      "kilograms",
-      "mg"
-    ],
+    "units_mass": ["g", "gm", "gms", "gram", "grams", "kg", "kgs", "kilogram", "kilograms", "mg"],
     "units_volume": [
       "ml",
       "mls",
@@ -84,13 +70,7 @@
       "tablet",
       "tablets"
     ],
-    "currency_markers": [
-      "₹",
-      "rs",
-      "rs.",
-      "inr",
-      "rupees"
-    ],
+    "currency_markers": ["₹", "rs", "rs.", "inr", "rupees"],
     "month_names": [
       "jan",
       "feb",
